@@ -1,0 +1,62 @@
+.trf-head {
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.trf-sub {
+  font-size: 10.5px;
+  color: var(--txt3);
+  margin-top: 2px;
+}
+
+.trf-clear {
+  color: var(--re);
+  border-color: var(--re-l, rgba(220, 38, 38, 0.25));
+  background: var(--re-l, rgba(220, 38, 38, 0.08));
+
+  &:hover {
+    background: rgba(220, 38, 38, 0.14);
+  }
+}
+
+.sav-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sav-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  margin: 0;
+}
+
+.sav-field-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--txt3);
+}
+
+.trf-date {
+  font-size: 10.5px;
+  color: var(--txt2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.trf-notes {
+  font-size: 10.5px;
+  color: var(--txt3);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
