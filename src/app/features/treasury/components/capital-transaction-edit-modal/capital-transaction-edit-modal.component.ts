@@ -15,7 +15,6 @@ import {
   SearchableSelectComponent,
   SearchableSelectOption,
 } from '../../../../shared/components/searchable-select/searchable-select.component';
-import { shortenVoucherNumber } from '../../../../shared/utils/voucher-number.util';
 import { ToastService } from '../../../../core/services/toast.service';
 import { ApiError } from '../../../../core/models/api-response.model';
 import { apiErrorToMessage } from '../../../../core/utils/api-error.util';
@@ -60,9 +59,8 @@ export class CapitalTransactionEditModalComponent {
   protected readonly submitting = signal(false);
   protected readonly typeOptions = CAPITAL_TX_TYPE_OPTIONS;
 
-  /** Voucher numbers run 70+ chars — the title carries the short form only. */
   protected readonly title = computed(() => {
-    const voucher = shortenVoucherNumber(this.transaction()?.voucherNumber);
+    const voucher = this.transaction()?.voucherNumber?.trim();
     return voucher ? `تعديل عملية رأس مال — ${voucher}` : 'تعديل عملية رأس مال';
   });
 

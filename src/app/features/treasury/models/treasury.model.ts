@@ -246,7 +246,13 @@ export interface ShareholderProfitShare {
 export interface ProfitTreasuries {
   /** Profits not yet settled — company + shareholders pending shares. */
   profitsTreasury: number;
+  /** Includes `companyOwnPendingProfit`. */
   companyPendingShare: number;
+  /**
+   * Company's cut of profits earned on its own balance, held until the next
+   * capitalisation/distribution. Absent on older backend builds.
+   */
+  companyOwnPendingProfit?: number;
   shareholdersPendingShare: number;
   /** Settled company profits only — excludes `companyPendingShare`. */
   companyProfitsTreasury: number;

@@ -30,7 +30,11 @@ import {
   CompanyProfitStatement,
   CompanyProfitStatementQuery,
 } from '../../models/company-profit-statement.model';
-import { toCompanyProfitEntryRow } from '../../constants/company-profit-labels';
+import {
+  CompanyProfitEntryRow,
+  companyBalanceSourceOf,
+  toCompanyProfitEntryRow,
+} from '../../constants/company-profit-labels';
 import { CompanyBalanceModalComponent } from '../company-balance-modal/company-balance-modal.component';
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -39,8 +43,8 @@ const DEFAULT_PAGE_SIZE = 10;
 const DIFFERENCE_TOLERANCE = 0.005;
 
 /**
- * Company balance ledger: settlements, capitalisations, profit shares,
- * treasury transfers and manual deposits/withdrawals. Manual lines
+ * Company balance ledger: settlements, capitalisations, consolidated profit
+ * shares, treasury transfers and manual deposits/withdrawals. Editable lines
  * (`isEditable`) can be edited/deleted in place.
  */
 @Component({
@@ -86,7 +90,8 @@ export class CompanyProfitStatementModalComponent {
 
   // ── row edit / delete ──
   protected readonly editing = signal<CompanyProfitEntry | null>(null);
-  protected readonly deletingId = signal<number | null>(null);
+  /** Row `key` — ids are only unique per source. */
+  protected readonly deletingKey = signal<string | null>(null);
 
   // ── derived ──
   protected readonly currency = environment.currency;
@@ -167,24 +172,25 @@ export class CompanyProfitStatementModalComponent {
 
   // ─────────── delete ───────────
 
-  protected async confirmDelete(entry: CompanyProfitEntry): Promise<void> {
-    if (this.deletingId() !== null) return;
-    const kind = entry.voucherType === 'Receipt' ? 'الإيداع' : 'السحب';
+  protected async confirmDelete(row: CompanyProfitEntryRow): Promise<void> {
+    if (this.deletingKey() !== null) return;
+    const entry = row.entry;
     const ok = await this.dialog.confirm({
       title: 'حذف عملية على رصيد الشركة',
       message:
-        `هل أنت متأكد من حذف عملية ${kind} بمبلغ ${entry.amount.toLocaleString('ar-EG')} ${this.currency}؟ ` +
-        'سيتم عكس أثرها على رصيد الشركة وعلى الخزينة. هذا الإجراء لا يمكن التراجع عنه.',
+        `هل أنت متأكد من حذف "${row.referenceLabel}" (${row.voucherLabel}) بمبلغ ` +
+        `${entry.amount.toLocaleString('ar-EG')} ${this.currency}؟ ` +
+        'سيتم عكس أثرها على رصيد الشركة وعلى الخزينة المرتبطة بها إن وُجدت. هذا الإجراء لا يمكن التراجع عنه.',
       confirmText: 'حذف',
       cancelText: 'إلغاء',
       type: 'danger',
     });
     if (!ok) return;
 
-    this.deletingId.set(entry.id);
-    this.service.deleteCompanyBalanceTransaction(entry.id).subscribe({
+    this.deletingKey.set(row.key);
+    this.service.deleteCompanyBalanceTransaction(entry.id, companyBalanceSourceOf(entry)).subscribe({
       next: () => {
-        this.deletingId.set(null);
+        this.deletingKey.set(null);
         this.toast.success('تم حذف العملية وعكس أثرها بنجاح');
         // Step back if we just emptied the last page.
         if (this.rows().length === 1 && this.pageIndex() > 1) {
@@ -193,7 +199,7 @@ export class CompanyProfitStatementModalComponent {
         this.afterWrite();
       },
       error: (err: ApiError) => {
-        this.deletingId.set(null);
+        this.deletingKey.set(null);
         this.toast.error(apiErrorToMessage(err, 'تعذّر حذف العملية'));
       },
     });

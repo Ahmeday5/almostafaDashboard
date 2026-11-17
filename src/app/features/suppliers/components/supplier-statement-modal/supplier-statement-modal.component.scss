@@ -38,6 +38,10 @@
   font-weight: 600;
 }
 
+.ss-field-rep {
+  min-width: 190px;
+}
+
 .ss-toggle {
   display: inline-flex;
   align-items: center;
@@ -427,3 +431,7 @@
   font-size: 12px;
 }
 
+.ss-pay-actions {
+  width: 1%;
+  white-space: nowrap;
+}

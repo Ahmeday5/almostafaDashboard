@@ -22,6 +22,7 @@ import {
   ProfitSettlement,
   ProfitSettlementPreview,
 } from '../../models/profit-settlement.model';
+import { companyPostingSummary } from '../../constants/company-profit-labels';
 import { FETCH_ALL_PAGE_SIZE } from '../../../../core/utils/api-list.util';
 
 @Component({
@@ -69,7 +70,14 @@ export class ProfitDistributionModalComponent {
   protected readonly totalCompanyShare = computed(
     () => this.preview()?.totalCompanyShare ?? 0,
   );
-  protected readonly canDistribute = computed(() => this.totalAmount() > 0);
+  /** Company's pending cut of profits on its own balance — posted in the same voucher. */
+  protected readonly companyOwnProfit = computed(
+    () => this.preview()?.companyOwnProfit ?? 0,
+  );
+  /** Allowed with no shareholder profits as long as the company has pending profit. */
+  protected readonly canDistribute = computed(
+    () => this.totalAmount() > 0 || this.companyOwnProfit() !== 0,
+  );
 
   // ── form ── (ledger-only settlement: no source treasury)
   protected readonly form = this.fb.nonNullable.group({
@@ -111,7 +119,7 @@ export class ProfitDistributionModalComponent {
       .subscribe({
         next: (settlement) => {
           this.submitting.set(false);
-          this.toast.success('تم توزيع الأرباح بنجاح');
+          this.toast.success(`تم توزيع الأرباح بنجاح — ${companyPostingSummary(settlement)}`);
           this.settled.emit(settlement);
         },
         error: (err: ApiError) => {

@@ -1,15 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 
 import { ToastService } from '../../../core/services/toast.service';
-import { shortenVoucherNumber } from '../../utils/voucher-number.util';
 
 /**
- * Compact, copyable voucher number for tables:
+ * Copyable voucher number for tables:
  *
  *   <app-voucher-number [value]="row.voucherNumber" />
  *
- * Shows a shortened form; the full number is in the tooltip / screen-reader
- * label and is copied to the clipboard on click. Renders `—` when empty.
+ * Voucher numbers are short serials (e.g. `1543`), shown verbatim and copied
+ * to the clipboard on click. Renders `—` when empty.
  */
 @Component({
   selector: 'app-voucher-number',
@@ -24,7 +23,7 @@ import { shortenVoucherNumber } from '../../utils/voucher-number.util';
         [attr.aria-label]="'رقم السند ' + v + '، اضغط للنسخ'"
         (click)="copy(v); $event.stopPropagation()"
       >
-        <span class="vn-text" dir="ltr">{{ short() }}</span>
+        <span class="vn-text" dir="ltr">{{ v }}</span>
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="9" y="9" width="11" height="11" rx="2" />
@@ -72,7 +71,6 @@ export class VoucherNumberComponent {
   private readonly toast = inject(ToastService);
 
   protected readonly full = computed(() => (this.value() ?? '').trim());
-  protected readonly short = computed(() => shortenVoucherNumber(this.full()));
 
   protected copy(value: string): void {
     const clipboard = navigator.clipboard;

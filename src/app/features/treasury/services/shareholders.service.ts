@@ -14,6 +14,8 @@ import { toList, toPaged } from '../../../core/utils/api-list.util';
 import {
   CompanyBalanceTransaction,
   CompanyBalanceTransactionPayload,
+  CompanyBalanceTransactionSource,
+  ConsolidateHistoricalReport,
   CreateShareholderPayload,
   ReconcileHistoricalReport,
   Shareholder,
@@ -31,6 +33,7 @@ import {
 } from '../models/profit-settlement.model';
 import {
   CapitalizeAllProfitsPayload,
+  CapitalizeAllProfitsResult,
   CapitalizeProfitPayload,
   CapitalTransaction,
   CapitalTransactionsQuery,
@@ -152,23 +155,31 @@ export class ShareholdersService {
     );
   }
 
-  /** See {@link CompanyBalanceTransactionPayload} for the PUT null semantics. */
+  /**
+   * See {@link CompanyBalanceTransactionPayload} for the PUT null semantics.
+   * `source` is the statement line's origin — mandatory for `Transfer` rows,
+   * whose ids live in a different table than vouchers.
+   */
   updateCompanyBalanceTransaction(
     id: number,
+    source: CompanyBalanceTransactionSource,
     payload: CompanyBalanceTransactionPayload,
   ): Observable<CompanyBalanceTransaction> {
     return this.api.put<CompanyBalanceTransaction>(
       API_ENDPOINTS.shareholders.companyBalanceTransactionById(id),
       payload,
-      { context: this.companyBalanceWriteContext() },
+      { params: { source }, context: this.companyBalanceWriteContext() },
     );
   }
 
   /** Reverses the operation's effect on the company balance and on its treasury. */
-  deleteCompanyBalanceTransaction(id: number): Observable<{ message: string }> {
+  deleteCompanyBalanceTransaction(
+    id: number,
+    source: CompanyBalanceTransactionSource,
+  ): Observable<{ message: string }> {
     return this.api.delete<{ message: string }>(
       API_ENDPOINTS.shareholders.companyBalanceTransactionById(id),
-      { context: this.companyBalanceWriteContext() },
+      { params: { source }, context: this.companyBalanceWriteContext() },
     );
   }
 
@@ -179,6 +190,18 @@ export class ShareholdersService {
         TREASURY_CACHE_KEY,
         COMPANY_STATEMENT_CACHE_KEY,
       ]),
+    );
+  }
+
+  /**
+   * Admin maintenance: merges legacy per-profit company-share rows into
+   * consolidated vouchers. Idempotent — safe to run again.
+   */
+  consolidateHistoricalCompanyBalance(): Observable<ConsolidateHistoricalReport> {
+    return this.api.post<ConsolidateHistoricalReport>(
+      API_ENDPOINTS.shareholders.companyBalanceConsolidate,
+      {},
+      { context: this.companyBalanceWriteContext() },
     );
   }
 
@@ -245,7 +268,11 @@ export class ShareholdersService {
       payload,
       {
         context: withInlineHandling(
-          withCacheInvalidate([SHAREHOLDERS_CACHE_KEY, TREASURY_CACHE_KEY]),
+          withCacheInvalidate([
+            SHAREHOLDERS_CACHE_KEY,
+            TREASURY_CACHE_KEY,
+            COMPANY_STATEMENT_CACHE_KEY,
+          ]),
         ),
       },
     );
@@ -317,13 +344,17 @@ export class ShareholdersService {
    */
   capitalizeAllProfits(
     payload: CapitalizeAllProfitsPayload,
-  ): Observable<{ message: string }> {
-    return this.api.post<{ message: string }>(
+  ): Observable<CapitalizeAllProfitsResult> {
+    return this.api.post<CapitalizeAllProfitsResult>(
       API_ENDPOINTS.shareholders.capitalizeAllProfits,
       payload,
       {
         context: withInlineHandling(
-          withCacheInvalidate([SHAREHOLDERS_CACHE_KEY, TREASURY_CACHE_KEY]),
+          withCacheInvalidate([
+            SHAREHOLDERS_CACHE_KEY,
+            TREASURY_CACHE_KEY,
+            COMPANY_STATEMENT_CACHE_KEY,
+          ]),
         ),
       },
     );

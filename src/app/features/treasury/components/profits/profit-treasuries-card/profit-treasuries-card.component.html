@@ -18,6 +18,17 @@
           </dt>
           <dd [class.pt-loss]="t.companyPendingShare < 0">{{ t.companyPendingShare | amountAr }}</dd>
         </div>
+        @let ownPending = t.companyOwnPendingProfit ?? 0;
+        <div class="pt-item pt-sub pt-sub-nested">
+          <dt>
+            ↳ نصيب الشركة من الأرباح برصيدها (معلق)
+            <app-profit-info
+              field="Treasuries.CompanyOwnPendingProfit"
+              [fallback]="hints.companyOwnPendingProfit"
+            />
+          </dt>
+          <dd [class.pt-loss]="ownPending < 0">{{ ownPending | amountAr }}</dd>
+        </div>
         <div class="pt-item pt-sub">
           <dt>
             ↳ منها حصة المساهمين (لم تُسوَّ بعد)

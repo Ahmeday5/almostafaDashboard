@@ -50,6 +50,11 @@ export interface ProfitSettlementPreview {
   totalShareholdersShare: number;
   /** Sum of all companyShare values — what flows into the company's profits treasury. */
   totalCompanyShare: number;
+  /**
+   * Company's pending cut of profits on its own balance — posted with the next
+   * capitalisation/distribution. Absent on older backend builds.
+   */
+  companyOwnProfit?: number;
   lines: ProfitSettlementPreviewLines;
 }
 
@@ -75,7 +80,7 @@ export interface CreateProfitSettlementPayload {
  * `GET /profit-settlements/{id}`. `treasuryBalanceAfter` is present only on
  * the POST response (the treasury is drained to zero on success).
  */
-export interface ProfitSettlement {
+export interface ProfitSettlement extends CompanyProfitPosting {
   id: number;
   settlementDate: string;
   profitsTreasuryId: number;
@@ -84,6 +89,18 @@ export interface ProfitSettlement {
   treasuryBalanceAfter?: number;
   notes: string | null;
   lines: ProfitSettlementLine[];
+}
+
+/**
+ * Company side of a capitalisation/distribution: a single voucher (no
+ * shareholder) carrying the company's cut of shareholders' profits plus its
+ * own pending profit. It is a `Payment` voucher when the net is a loss.
+ * Total posted to the company balance = `totalCompanyShare + companyOwnProfit`.
+ */
+export interface CompanyProfitPosting {
+  totalCompanyShare?: number;
+  companyOwnProfit?: number;
+  companyVoucherNumber?: string | null;
 }
 
 /** Row shape returned by `GET /profit-settlements` (paged). */

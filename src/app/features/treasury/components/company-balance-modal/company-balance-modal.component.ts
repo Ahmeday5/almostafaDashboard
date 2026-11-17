@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { map } from 'rxjs';
 
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { FormErrorComponent } from '../../../../shared/components/form-error/form-error.component';
@@ -34,11 +35,32 @@ import {
 } from '../../models/shareholder.model';
 import { CompanyProfitEntry } from '../../models/company-profit-statement.model';
 import { ShareholderTreasuryLookup } from '../../models/shareholder-treasury-lookup.model';
+import { companyBalanceSourceOf } from '../../constants/company-profit-labels';
 
-const TYPE_OPTIONS: ReadonlyArray<{ value: CompanyBalanceTransactionType; label: string }> = [
+type TypeOption = { value: CompanyBalanceTransactionType; label: string };
+
+const TYPE_OPTIONS: readonly TypeOption[] = [
   { value: 'Receipt', label: 'إيداع' },
   { value: 'Payment', label: 'سحب' },
 ];
+
+const TRANSFER_TYPE_OPTIONS: readonly TypeOption[] = [
+  { value: 'Receipt', label: 'تحويل وارد إلى رصيد الشركة' },
+  { value: 'Payment', label: 'تحويل صادر من رصيد الشركة' },
+];
+
+/**
+ * What an edited statement line is:
+ *   - `adjustment` manual deposit/withdrawal — treasury optional (null keeps it).
+ *   - `transfer`   legacy treasury transfer — treasury = the other side, type = direction.
+ *   - `voucher`    any other `Payment` voucher — fixed type, treasury ignored by the API.
+ */
+type EditKind = 'adjustment' | 'transfer' | 'voucher';
+
+function editKindOf(tx: CompanyProfitEntry): EditKind {
+  if (tx.source === 'Transfer') return 'transfer';
+  return tx.referenceType === 'CompanyCapitalAdjustment' ? 'adjustment' : 'voucher';
+}
 
 /** Signed effect of an operation on the company balance. */
 function signedAmount(type: CompanyBalanceTransactionType, amount: number): number {
@@ -52,9 +74,10 @@ function signedAmount(type: CompanyBalanceTransactionType, amount: number): numb
  *   Create: <app-company-balance-modal [open]="o" [balance]="b" (saved)="…" (closed)="…" />
  *   Edit:   same, plus [transaction]="row"   (an `isEditable` statement line)
  *
- * In edit mode the treasury is optional: legacy operations have none, and the
- * API keeps the stored treasury when `treasuryId` is null. The classification
- * is always resent as-is, because a null classification clears it.
+ * Edit rules depend on the line (see {@link EditKind}). On a deposit/withdrawal
+ * the treasury is optional: legacy operations have none, and the API keeps the
+ * stored treasury when `treasuryId` is null. The classification is always
+ * resent as-is, because a null classification clears it.
  */
 @Component({
   selector: 'app-company-balance-modal',
@@ -85,8 +108,6 @@ export class CompanyBalanceModalComponent {
   private readonly classificationsService = inject(CapitalClassificationsService);
   private readonly toast = inject(ToastService);
 
-  protected readonly typeOptions = TYPE_OPTIONS;
-
   protected readonly submitting = signal(false);
   protected readonly serverError = signal<string | null>(null);
 
@@ -115,17 +136,34 @@ export class CompanyBalanceModalComponent {
     notes: this.fb.nonNullable.control(''),
   });
 
-  private readonly draft = toSignal(this.form.valueChanges, {
-    initialValue: this.form.getRawValue(),
-  });
+  /** Raw value — `type` is disabled (and so missing from `value`) on fixed-type vouchers. */
+  private readonly draft = toSignal(
+    this.form.valueChanges.pipe(map(() => this.form.getRawValue())),
+    { initialValue: this.form.getRawValue() },
+  );
 
   // ── derived ──
-  protected readonly isEdit = computed(() => this.transaction() !== null);
-  protected readonly draftType = computed(() => this.draft().type ?? 'Receipt');
+  /** Null = create. */
+  protected readonly kind = computed<EditKind | null>(() => {
+    const tx = this.transaction();
+    return tx ? editKindOf(tx) : null;
+  });
+  protected readonly isEdit = computed(() => this.kind() !== null);
+  protected readonly draftType = computed(() => this.draft().type);
 
-  /** Legacy operations were recorded without a treasury. */
+  protected readonly typeOptions = computed(() =>
+    this.kind() === 'transfer' ? TRANSFER_TYPE_OPTIONS : TYPE_OPTIONS,
+  );
+  /** The API ignores the treasury of a non deposit/withdrawal voucher. */
+  protected readonly showTreasury = computed(() => this.kind() !== 'voucher');
+  protected readonly treasuryRequired = computed(() => {
+    const kind = this.kind();
+    return kind === null || kind === 'transfer';
+  });
+
+  /** Legacy deposits/withdrawals were recorded without a treasury. */
   protected readonly isLegacy = computed(
-    () => this.isEdit() && this.transaction()?.counterpartyTreasuryId == null,
+    () => this.kind() === 'adjustment' && this.transaction()?.counterpartyTreasuryId == null,
   );
 
   protected readonly title = computed(() =>
@@ -139,7 +177,7 @@ export class CompanyBalanceModalComponent {
       ? signedAmount(original.voucherType, original.amount)
       : 0;
     const draft = this.draft();
-    const draftEffect = signedAmount(draft.type ?? 'Receipt', Number(draft.amount) || 0);
+    const draftEffect = signedAmount(draft.type, Number(draft.amount) || 0);
     return this.balance() - originalEffect + draftEffect;
   });
 
@@ -175,7 +213,11 @@ export class CompanyBalanceModalComponent {
     const payload = this.toPayload();
     const original = this.transaction();
     const request$ = original
-      ? this.service.updateCompanyBalanceTransaction(original.id, payload)
+      ? this.service.updateCompanyBalanceTransaction(
+          original.id,
+          companyBalanceSourceOf(original),
+          payload,
+        )
       : this.service.createCompanyBalanceTransaction(payload);
 
     this.serverError.set(null);
@@ -203,18 +245,25 @@ export class CompanyBalanceModalComponent {
   // ─────────── internals ───────────
 
   private resetForm(tx: CompanyProfitEntry | null): void {
-    // Treasury is mandatory on create; on edit null means "keep current".
+    const kind = tx ? editKindOf(tx) : null;
+
+    // Mandatory on create and on transfers (the other side); on a
+    // deposit/withdrawal edit null means "keep current"; vouchers ignore it.
     const treasury = this.form.controls.treasuryId;
-    treasury.setValidators(tx ? null : Validators.required);
+    treasury.setValidators(kind === null || kind === 'transfer' ? Validators.required : null);
 
     this.form.reset({
       type: tx?.voucherType ?? 'Receipt',
       amount: tx?.amount ?? 0,
       date: tx?.date ? tx.date.slice(0, 10) : todayIsoDate(),
-      treasuryId: tx?.counterpartyTreasuryId ?? null,
+      treasuryId: kind === 'voucher' ? null : (tx?.counterpartyTreasuryId ?? null),
       capitalClassificationId: tx?.capitalClassificationId ?? null,
       notes: tx?.notes ?? '',
     });
+
+    const type = this.form.controls.type;
+    if (kind === 'voucher') type.disable();
+    else type.enable();
   }
 
   private toPayload(): CompanyBalanceTransactionPayload {

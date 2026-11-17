@@ -1,6 +1,6 @@
 <app-modal
   [open]="open()"
-  title="تسجيل دفعة للمورد"
+  [title]="title()"
   size="md"
   [closeOnBackdrop]="!submitting()"
   [closeOnEsc]="!submitting()"
@@ -65,7 +65,7 @@
         <div class="col-12 col-md-6">
           <label class="form-label d-flex justify-content-between align-items-center">
             <span>المبلغ</span>
-            @if (remaining() > 0) {
+            @if (!isEdit() && remaining() > 0) {
               <button
                 type="button"
                 class="spm-link"
@@ -120,7 +120,7 @@
     </form>
 
     <!-- ── Projection ── -->
-    @if (draftAmount() > 0 && !amountExceedsRemaining()) {
+    @if (!isEdit() && draftAmount() > 0 && !amountExceedsRemaining()) {
       <div class="spm-projection">
         <div class="spm-projection-row">
           <span>المتبقي للمورد بعد الدفعة:</span>
@@ -161,7 +161,7 @@
       @if (submitting()) {
         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
       }
-      <span>{{ submitting() ? 'جاري التسجيل...' : 'تسجيل الدفعة' }}</span>
+      <span>{{ submitting() ? 'جاري الحفظ...' : isEdit() ? 'حفظ التعديل' : 'تسجيل الدفعة' }}</span>
     </button>
   </ng-container>
 </app-modal>

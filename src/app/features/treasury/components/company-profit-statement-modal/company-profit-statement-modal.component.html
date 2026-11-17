@@ -25,6 +25,10 @@
         <div class="cps-sc-label">الرصيد الحالي</div>
         <div class="cps-sc-val">{{ st.currentBalance | currencyAr: true }}</div>
       </div>
+      <div class="cps-sc cps-sc-pending">
+        <div class="cps-sc-label">أرباح معلّقة (تُرحّل مع الترحيل القادم)</div>
+        <div class="cps-sc-val">{{ (st.pendingProfit ?? 0) | currencyAr: true }}</div>
+      </div>
     </div>
   }
 
@@ -123,16 +127,16 @@
                   <button
                     type="button"
                     class="btn btn-sm btn-bl"
-                    [disabled]="loading() || deletingId() === e.id"
+                    [disabled]="loading() || deletingKey() === row.key"
                     (click)="openEdit(e)"
                   >تعديل</button>
                   <button
                     type="button"
                     class="btn btn-sm btn-re d-inline-flex align-items-center gap-1"
-                    [disabled]="loading() || deletingId() !== null"
-                    (click)="confirmDelete(e)"
+                    [disabled]="loading() || deletingKey() !== null"
+                    (click)="confirmDelete(row)"
                   >
-                    @if (deletingId() === e.id) {
+                    @if (deletingKey() === row.key) {
                       <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                     }
                     <span>حذف</span>

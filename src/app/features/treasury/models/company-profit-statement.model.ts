@@ -2,9 +2,11 @@ export type CompanyProfitVoucherType = 'Receipt' | 'Payment';
 
 /**
  * Origin of a statement line:
- *   - `Voucher`     settlement / capitalisation / manual deposit-withdrawal.
+ *   - `Voucher`     settlement / capitalisation / manual deposit-withdrawal /
+ *                   consolidated company profit share.
  *   - `Transfer`    movement between treasuries.
- *   - `ProfitShare` the company's own cut of a recorded profit (or its reversal).
+ *   - `ProfitShare` legacy per-profit company cut — no longer emitted (now
+ *                   consolidated into `CompanyProfitShare` vouchers).
  */
 export type CompanyProfitEntrySource = 'Voucher' | 'Transfer' | 'ProfitShare';
 
@@ -12,6 +14,8 @@ export type CompanyProfitReferenceType =
   | 'ShareholderProfitCapitalization'
   | 'ProfitDistribution'
   | 'CompanyCapitalAdjustment'
+  /** Consolidated voucher of the company's cut of profits on its own balance. */
+  | 'CompanyProfitShare'
   | 'TransferIn'
   | 'TransferOut'
   // Forward-compatible: unknown types fall back to the raw value.
@@ -38,7 +42,10 @@ export interface CompanyProfitEntry {
   counterpartyTreasuryName: string | null;
   capitalClassificationId: number | null;
   capitalClassificationName: string | null;
-  /** True only for manual deposits/withdrawals — the rows that can be edited or deleted. */
+  /**
+   * Rows that can be edited/deleted: manual deposits/withdrawals, every
+   * `Payment` voucher, and legacy outgoing transfers (`source = 'Transfer'`).
+   */
   isEditable: boolean;
   notes: string | null;
 }
@@ -57,6 +64,11 @@ export interface CompanyProfitStatement {
    * movement). Expected to be 0; anything else signals a data inconsistency.
    */
   unexplainedDifference: number;
+  /**
+   * Company's own profit share not yet posted to its balance — moves in with
+   * the next capitalisation/distribution. Absent on older backend builds.
+   */
+  pendingProfit?: number;
   entries: {
     pageIndex: number;
     pageSize: number;

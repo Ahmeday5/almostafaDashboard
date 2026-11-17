@@ -96,6 +96,7 @@ export class ShareholdersComponent {
   protected readonly reconciling = signal(false);
   protected readonly reconcileDone = signal(this.storage.get(RECONCILE_DONE_KEY) === '1');
   protected readonly reconcileReport = signal<ReconcileHistoricalReport | null>(null);
+  protected readonly consolidating = signal(false);
 
   // ── filters ──
   protected readonly searchTerm = signal('');
@@ -134,11 +135,20 @@ export class ShareholdersComponent {
   protected readonly previewTotalCompanyShare = computed(
     () => this.preview()?.totalCompanyShare ?? 0,
   );
+  /** Company's pending cut of profits on its own balance — posted with the next capitalisation. */
+  protected readonly previewCompanyOwnProfit = computed(
+    () => this.preview()?.companyOwnProfit ?? 0,
+  );
   protected readonly previewTreasuryName = computed(
     () => this.preview()?.profitsTreasuryName ?? '—',
   );
-  /** Whether there's anything to distribute — based on the whole-population total, not the current search/page. */
-  protected readonly hasPendingProfits = computed(() => this.previewTotal() > 0);
+  /**
+   * Whether there's anything to capitalise — whole-population totals, not the
+   * current search/page. The company's own pending profit alone is enough.
+   */
+  protected readonly hasPendingProfits = computed(
+    () => this.previewTotal() > 0 || this.previewCompanyOwnProfit() !== 0,
+  );
 
   private readonly previewTrigger = computed(() => ({
     search: this.previewSearch().trim(),
@@ -590,6 +600,36 @@ export class ShareholdersComponent {
       error: (err: ApiError) => {
         this.reconciling.set(false);
         this.toast.error(apiErrorToMessage(err, 'تعذّر تنفيذ المعالجة التاريخية'));
+      },
+    });
+  }
+
+  /** Admin maintenance — idempotent, so no "done" flag; just a confirm. */
+  protected async runConsolidate(): Promise<void> {
+    if (this.consolidating()) return;
+    const ok = await this.dialog.confirm({
+      title: 'تجميع سندات أرباح الشركة القديمة',
+      message:
+        'سيتم دمج سطور "نصيب الشركة من الأرباح" القديمة في سندات مُجمّعة على رصيد الشركة. تشغيل العملية أكثر من مرة آمن. هل تريد المتابعة؟',
+      confirmText: 'تنفيذ التجميع',
+      cancelText: 'إلغاء',
+      type: 'warning',
+    });
+    if (!ok) return;
+
+    this.consolidating.set(true);
+    this.service.consolidateHistoricalCompanyBalance().subscribe({
+      next: (report) => {
+        this.consolidating.set(false);
+        this.toast.success(
+          `تم تجميع السندات القديمة بنجاح — ${report?.profitShareRowsConsolidated ?? 0} سطر في ` +
+            `${report?.vouchersCreated ?? 0} سند جديد، وحذف ${report?.vouchersRemoved ?? 0} سند ` +
+            `(${report?.mergedRuns ?? 0} مجموعة).`,
+        );
+      },
+      error: (err: ApiError) => {
+        this.consolidating.set(false);
+        this.toast.error(apiErrorToMessage(err, 'تعذّر تجميع السندات القديمة'));
       },
     });
   }

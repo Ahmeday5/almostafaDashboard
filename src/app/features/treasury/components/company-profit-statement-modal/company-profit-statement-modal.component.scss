@@ -31,6 +31,7 @@
 .cps-sc-recv .cps-sc-val { color: var(--gr); }
 .cps-sc-paid .cps-sc-val { color: var(--re, #c0392b); }
 .cps-sc-bal  .cps-sc-val { color: var(--bl); }
+.cps-sc-pending .cps-sc-val { color: var(--am); }
 .cps-sc-net  .cps-sc-val { color: var(--te, var(--bl)); }
 .cps-sc-net  .cps-sc-val.cps-out { color: var(--re, #c0392b); }
 

@@ -18,7 +18,7 @@
       <div class="col-12 col-md-6">
         <label class="form-label">نوع العملية <span class="text-danger">*</span></label>
         <select class="form-select" formControlName="type">
-          @for (opt of typeOptions; track opt.value) {
+          @for (opt of typeOptions(); track opt.value) {
             <option [value]="opt.value">{{ opt.label }}</option>
           }
         </select>
@@ -30,22 +30,24 @@
         <app-form-error [control]="form.controls.amount" label="المبلغ" />
       </div>
 
-      <div class="col-12 col-md-6">
-        <label class="form-label">
-          الخزينة
-          @if (!isEdit()) {
-            <span class="text-danger">*</span>
-          }
-        </label>
-        <app-searchable-select
-          formControlName="treasuryId"
-          [options]="treasuryOptions()"
-          [isDisabled]="treasuriesLoading()"
-          [placeholder]="isLegacy() ? 'بدون خزينة (عملية قديمة)' : 'اختر الخزينة'"
-          searchPlaceholder="ابحث باسم الخزينة…"
-        />
-        <app-form-error [control]="form.controls.treasuryId" label="الخزينة" />
-      </div>
+      @if (showTreasury()) {
+        <div class="col-12 col-md-6">
+          <label class="form-label">
+            {{ kind() === 'transfer' ? 'الخزينة الأخرى في التحويل' : 'الخزينة' }}
+            @if (treasuryRequired()) {
+              <span class="text-danger">*</span>
+            }
+          </label>
+          <app-searchable-select
+            formControlName="treasuryId"
+            [options]="treasuryOptions()"
+            [isDisabled]="treasuriesLoading()"
+            [placeholder]="isLegacy() ? 'بدون خزينة (عملية قديمة)' : 'اختر الخزينة'"
+            searchPlaceholder="ابحث باسم الخزينة…"
+          />
+          <app-form-error [control]="form.controls.treasuryId" label="الخزينة" />
+        </div>
+      }
 
       <div class="col-12 col-md-6">
         <label class="form-label">التصنيف <span class="form-label-hint">(اختياري)</span></label>
@@ -76,12 +78,26 @@
     </div>
 
     <div class="alert alert-info mt-2 mb-0 py-2" role="note" style="font-size:11px">
-      @if (draftType() === 'Receipt') {
-        الإيداع يُدخل مبلغًا فعليًا في الخزينة المختارة ويزيد رصيد الشركة.
-      } @else {
-        السحب يُخرج مبلغًا فعليًا من الخزينة المختارة ويقلل رصيد الشركة.
+      @switch (kind()) {
+        @case ('voucher') {
+          سند صرف على رصيد الشركة — اختيار الخزينة لا ينطبق على هذا السند، ونوعه ثابت.
+        }
+        @case ('transfer') {
+          @if (draftType() === 'Receipt') {
+            تحويل من الخزينة المختارة إلى رصيد الشركة.
+          } @else {
+            تحويل من رصيد الشركة إلى الخزينة المختارة.
+          }
+        }
+        @default {
+          @if (draftType() === 'Receipt') {
+            الإيداع يُدخل مبلغًا فعليًا في الخزينة المختارة ويزيد رصيد الشركة.
+          } @else {
+            السحب يُخرج مبلغًا فعليًا من الخزينة المختارة ويقلل رصيد الشركة.
+          }
+          تظهر العملية في كشف حساب الشركة وفي سجل عمليات الخزينة، ويمكن تعديلها أو حذفها من أيٍّ منهما.
+        }
       }
-      تظهر العملية في كشف حساب الشركة وفي سجل عمليات الخزينة، ويمكن تعديلها أو حذفها من أيٍّ منهما.
     </div>
 
     @if (isLegacy()) {

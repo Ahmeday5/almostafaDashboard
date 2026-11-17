@@ -23,8 +23,23 @@ import { LookupItem } from '../../../../core/models/lookup.model';
 
 import { TreasuryService } from '../../../treasury/services/treasury.service';
 import { SuppliersService } from '../../services/suppliers.service';
-import { Supplier, SupplierPaymentResponse } from '../../models/supplier.model';
+import {
+  Supplier,
+  SupplierPaymentPayload,
+  SupplierPaymentResponse,
+  SupplierStatementPayment,
+} from '../../models/supplier.model';
 
+/**
+ * Direct supplier payment (not tied to an invoice).
+ *
+ *   Create: <app-supplier-payment-modal [open]="o" [supplier]="s" (paid)="…" (closed)="…" />
+ *   Edit:   same, plus [payment]="row"   (a statement payment with `canEdit`)
+ *
+ * The client-side "exceeds remaining" guard applies to create only: on edit
+ * the cap depends on whose invoices the payment settles, so the server's 400
+ * message (which carries the correct remaining) is shown instead.
+ */
 @Component({
   selector: 'app-supplier-payment-modal',
   standalone: true,
@@ -43,6 +58,8 @@ export class SupplierPaymentModalComponent {
   // ── inputs ──
   readonly open = input.required<boolean>();
   readonly supplier = input<Supplier | null>(null);
+  /** Payment being edited; null = record a new one. */
+  readonly payment = input<SupplierStatementPayment | null>(null);
 
   // ── outputs ──
   readonly closed = output<void>();
@@ -62,6 +79,11 @@ export class SupplierPaymentModalComponent {
   protected readonly draftAmount = signal(0);
 
   // ── derived ──
+  protected readonly isEdit = computed(() => this.payment() !== null);
+  protected readonly title = computed(() =>
+    this.isEdit() ? 'تعديل دفعة للمورد' : 'تسجيل دفعة للمورد',
+  );
+
   protected readonly remaining = computed(
     () => this.supplier()?.remainingAmount ?? 0,
   );
@@ -71,7 +93,7 @@ export class SupplierPaymentModalComponent {
   );
 
   protected readonly amountExceedsRemaining = computed(
-    () => this.draftAmount() > this.remaining() + 1e-9,
+    () => !this.isEdit() && this.draftAmount() > this.remaining() + 1e-9,
   );
 
   protected readonly treasuryOptions = computed<SearchableSelectOption[]>(() =>
@@ -91,15 +113,16 @@ export class SupplierPaymentModalComponent {
       () => {
         const sup = this.supplier();
         if (!this.open() || !sup) return;
-        const remaining = sup.remainingAmount ?? 0;
+        const payment = this.payment();
+        const amount = payment ? payment.amount : (sup.remainingAmount ?? 0);
         this.serverError.set(null);
         this.submitting.set(false);
-        this.draftAmount.set(remaining);
+        this.draftAmount.set(amount);
         this.form.reset({
-          treasuryId: null,
-          amount: remaining,
-          paymentDate: this.todayISO(),
-          notes: '',
+          treasuryId: payment?.treasuryId ?? null,
+          amount,
+          paymentDate: payment?.date ? payment.date.slice(0, 10) : this.todayISO(),
+          notes: payment?.notes ?? '',
         });
         this.loadTreasuries();
       },
@@ -130,29 +153,37 @@ export class SupplierPaymentModalComponent {
     }
 
     const raw = this.form.getRawValue();
+    const payload: SupplierPaymentPayload = {
+      treasuryId: Number(raw.treasuryId),
+      amount: Number(raw.amount),
+      paymentDate: raw.paymentDate,
+      notes: (raw.notes ?? '').trim() || undefined,
+    };
+    const payment = this.payment();
+    const request$ = payment
+      ? this.suppliersService.updatePayment(sup.id, payment.id, payload)
+      : this.suppliersService.pay(sup.id, payload);
+
     this.serverError.set(null);
     this.submitting.set(true);
 
-    this.suppliersService
-      .pay(sup.id, {
-        treasuryId: Number(raw.treasuryId),
-        amount: Number(raw.amount),
-        paymentDate: raw.paymentDate,
-        notes: (raw.notes ?? '').trim() || undefined,
-      })
-      .subscribe({
-        next: (res) => {
-          this.submitting.set(false);
-          this.toast.success(
-            `تم تسجيل دفعة ${Number(raw.amount).toLocaleString('ar-EG')} ج.م للمورد ${res.supplierName}`,
-          );
-          this.paid.emit(res);
-        },
-        error: (err: ApiError) => {
-          this.submitting.set(false);
-          this.serverError.set(err.message || 'تعذّر تسجيل الدفعة');
-        },
-      });
+    request$.subscribe({
+      next: (res) => {
+        this.submitting.set(false);
+        this.toast.success(
+          payment
+            ? 'تم تعديل الدفعة بنجاح'
+            : `تم تسجيل دفعة ${payload.amount.toLocaleString('ar-EG')} ج.م للمورد ${res.supplierName}`,
+        );
+        this.paid.emit(res);
+      },
+      error: (err: ApiError) => {
+        this.submitting.set(false);
+        this.serverError.set(
+          err.message || (payment ? 'تعذّر تعديل الدفعة' : 'تعذّر تسجيل الدفعة'),
+        );
+      },
+    });
   }
 
   protected close(): void {

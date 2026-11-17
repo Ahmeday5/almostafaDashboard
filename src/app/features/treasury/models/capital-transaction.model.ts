@@ -1,3 +1,5 @@
+import { CompanyProfitPosting } from './profit-settlement.model';
+
 export enum CapitalTransactionType {
   Receipt = 'Receipt',
   Payment = 'Payment',
@@ -63,6 +65,9 @@ export interface CapitalizeAllProfitsPayload {
   date: string;
   notes: string;
 }
+
+/** Response of `POST /shareholders/capitalize-all-profits` — only the company side is consumed. */
+export type CapitalizeAllProfitsResult = CompanyProfitPosting;
 
 /** Query parameters for the paginated capital-transactions history. */
 export interface CapitalTransactionsQuery {

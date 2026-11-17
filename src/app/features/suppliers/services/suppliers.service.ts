@@ -24,6 +24,8 @@ import {
 } from '../models/supplier.model';
 
 const SUPPLIERS_CACHE_KEY = 'suppliers';
+/** Payments flip purchase-invoice statuses (Paid / PartiallyPaid / Pending). */
+const PURCHASE_INVOICES_CACHE_KEY = 'supplier-purchase-invoices';
 const SUPPLIERS_TTL_MS = 5 * 60 * 1000; // 5 min — list churns whenever a supplier is added/edited
 const STATEMENT_TTL_MS = 60 * 1000; // 1 min — figures move with every payment/draft
 
@@ -58,9 +60,8 @@ export class SuppliersService {
 
   /**
    * Lightweight `{id,name}` list for the supplier picker. Preferred over
-   * {@link listAll} for ID pickers: it's a single role-scoped call (a
-   * Representative gets only the suppliers the backend allows) instead of
-   * draining the paged `Suppliers.View`-gated list endpoint.
+   * {@link listAll} for ID pickers: it's a single call (every role gets every
+   * supplier) instead of draining the paged `Suppliers.View`-gated list endpoint.
    */
   lookup(): Observable<LookupItem[]> {
     return this.api
@@ -112,6 +113,8 @@ export class SuppliersService {
       from: query.from || undefined,
       to: query.to || undefined,
       includeDrafts: query.includeDrafts ?? false,
+      // `0` (administration) is a real value — only null/undefined are dropped.
+      representativeId: query.representativeId ?? undefined,
     };
   }
 
@@ -128,11 +131,40 @@ export class SuppliersService {
     return this.api.post<SupplierPaymentResponse>(
       API_ENDPOINTS.suppliers.payments(supplierId),
       payload,
-      {
-        context: withInlineHandling(
-          withCacheInvalidate([SUPPLIERS_CACHE_KEY, 'treasur', 'financial-separation']),
-        ),
-      },
+      { context: this.paymentWriteContext() },
+    );
+  }
+
+  /** PUT /dashboard/suppliers/{id}/payments/{paymentId} — same body/response as {@link pay}. */
+  updatePayment(
+    supplierId: number,
+    paymentId: number,
+    payload: SupplierPaymentPayload,
+  ): Observable<SupplierPaymentResponse> {
+    return this.api.put<SupplierPaymentResponse>(
+      API_ENDPOINTS.suppliers.paymentById(supplierId, paymentId),
+      payload,
+      { context: this.paymentWriteContext() },
+    );
+  }
+
+  /** Reverses the payment on the supplier's invoices and on its treasury. */
+  deletePayment(supplierId: number, paymentId: number): Observable<{ message: string }> {
+    return this.api.delete<{ message: string }>(
+      API_ENDPOINTS.suppliers.paymentById(supplierId, paymentId),
+      { context: this.paymentWriteContext() },
+    );
+  }
+
+  /** Payments move invoice statuses, supplier aggregates and a treasury balance. */
+  private paymentWriteContext() {
+    return withInlineHandling(
+      withCacheInvalidate([
+        SUPPLIERS_CACHE_KEY,
+        PURCHASE_INVOICES_CACHE_KEY,
+        'treasur',
+        'financial-separation',
+      ]),
     );
   }
 

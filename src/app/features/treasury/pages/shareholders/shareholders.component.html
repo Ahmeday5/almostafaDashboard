@@ -20,6 +20,15 @@
       <span>معالجة تاريخية لرصيد الشركة</span>
     </button>
     }
+    @if (isAdmin()) {
+    <button class="btn btn-sm d-inline-flex align-items-center gap-1" [disabled]="consolidating()"
+      title="دمج سطور نصيب الشركة من الأرباح القديمة في سندات مُجمّعة — آمن عند التكرار" (click)="runConsolidate()">
+      @if (consolidating()) {
+      <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+      }
+      <span>تجميع سندات الشركة القديمة</span>
+    </button>
+    }
     <button *appHasPermission="PERMS.treasuryFullAccess" class="btn btn-sm btn-te" [disabled]="!hasPendingProfits()"
       (click)="openCapitalizeAll()" title="ترحيل أرباح جميع المساهمين إلى رأس مالهم دفعةً واحدة">ترحيل إلى رأس
       المال</button>
@@ -305,6 +314,10 @@
       <span>·</span>
       <span>نصيب الشركة: {{ previewTotalCompanyShare() | currencyAr: true }}</span>
       }
+      @if (previewCompanyOwnProfit() !== 0) {
+      <span>·</span>
+      <span>نصيب الشركة من رصيدها: {{ previewCompanyOwnProfit() | currencyAr: true }}</span>
+      }
     </div>
   </div>
 
@@ -374,7 +387,7 @@
         </tr>
         }
       </tbody>
-      @if (hasPendingProfits()) {
+      @if (previewTotal() > 0) {
       <tfoot>
         <tr class="sh-preview-total">
           <td colspan="3" class="fw-600">الإجمالي</td>

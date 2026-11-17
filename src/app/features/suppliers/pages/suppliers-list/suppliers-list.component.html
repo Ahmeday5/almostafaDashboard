@@ -59,6 +59,12 @@
   </div>
 </div>
 
+@if (isRepresentative()) {
+  <div class="alert alert-info py-2" role="note" style="font-size:11px">
+    الأرقام المعروضة (الإجمالي والمدفوع والمتبقي) تخص فواتيرك ودفعاتك أنت فقط.
+  </div>
+}
+
 <!-- ── TOOLBAR ── -->
 <div class="sup-toolbar">
   <div class="sup-search">

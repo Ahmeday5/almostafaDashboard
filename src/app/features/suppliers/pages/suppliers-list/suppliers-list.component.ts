@@ -27,6 +27,7 @@ import { ApiError } from '../../../../core/models/api-response.model';
 import { HasPermissionDirective } from '../../../../shared/directives/has-permission.directive';
 import { PERMISSIONS } from '../../../../core/constants/permissions.const';
 import { PrintService } from '../../../../core/services/print.service';
+import { AuthService } from '../../../../core/services/auth.service';
 import { map } from 'rxjs/operators';
 import { fetchAllPages } from '../../../../core/utils/api-list.util';
 
@@ -62,11 +63,17 @@ export class SuppliersListComponent implements OnInit {
   private readonly toast   = inject(ToastService);
   private readonly cache   = inject(HttpCacheService);
   private readonly printer = inject(PrintService);
+  private readonly auth    = inject(AuthService);
 
   protected readonly isPrinting = signal(false);
 
   /** Exposed so the template can gate write actions with `*appHasPermission`. */
   protected readonly PERMS = PERMISSIONS;
+
+  /** A Representative sees every supplier, but the figures cover only their own account. */
+  protected readonly isRepresentative = computed(() =>
+    this.auth.hasAnyRole(['Representative']),
+  );
 
   // ── data ──
   protected readonly suppliers = signal<Supplier[]>([]);

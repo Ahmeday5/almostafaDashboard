@@ -33,7 +33,17 @@ export interface ShareholdersSummary {
 export type CompanyBalanceTransactionType = 'Receipt' | 'Payment';
 
 /**
+ * `?source=` of the company-balance PUT/DELETE — the statement line's origin.
+ * The API defaults to `Voucher`; `Transfer` must always be sent explicitly.
+ */
+export type CompanyBalanceTransactionSource = 'Voucher' | 'Transfer';
+
+/**
  * Body of `POST` and `PUT shareholders/company-balance/transactions[/{id}]`.
+ *
+ * On a `Transfer` row `treasuryId` is the transfer's other treasury and
+ * `type` its direction (`Payment` = out of the company balance); on a
+ * `Payment` voucher that isn't a deposit/withdrawal `treasuryId` is ignored.
  *
  * PUT semantics differ per field — callers editing a row must resend the
  * current values for anything they don't intend to change:
@@ -75,6 +85,14 @@ export interface ReconcileTreasuryLine {
   treasuryName?: string;
   amount?: number;
   [key: string]: unknown;
+}
+
+/** `POST shareholders/company-balance/consolidate-historical` report. */
+export interface ConsolidateHistoricalReport {
+  mergedRuns: number;
+  vouchersRemoved: number;
+  profitShareRowsConsolidated: number;
+  vouchersCreated: number;
 }
 
 /** `POST shareholders/company-balance/reconcile-historical` report. */

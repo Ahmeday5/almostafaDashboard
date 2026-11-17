@@ -9,17 +9,19 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { map } from 'rxjs';
 
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { PaginationComponent } from '../../../../shared/components/pagination/pagination.component';
 import { BadgeComponent } from '../../../../shared/components/badge/badge.component';
 import { CurrencyArPipe } from '../../../../shared/pipes/currency-ar.pipe';
 import { DateArPipe } from '../../../../shared/pipes/date-ar.pipe';
-import { VoucherNumberComponent } from '../../../../shared/components/voucher-number/voucher-number.component';
 import { DatePeriod, describePeriod, withPeriod } from '../../../../shared/utils/period-label.util';
-import { openWhatsAppShare } from '../../../../shared/utils/whatsapp.util';
-import { environment } from '../../../../../environments/environment';
+import { reserveWhatsAppShare } from '../../../../shared/utils/whatsapp.util';
 import { ApiError } from '../../../../core/models/api-response.model';
+import { ToastService } from '../../../../core/services/toast.service';
+import { apiErrorToMessage } from '../../../../core/utils/api-error.util';
+import { fetchAllPages } from '../../../../core/utils/api-list.util';
 
 import { CapitalClassificationsService } from '../../services/capital-classifications.service';
 import {
@@ -27,12 +29,12 @@ import {
   CapitalClassificationStatement,
   CapitalClassificationStatementEntry,
 } from '../../models/capital-classification.model';
+import {
+  buildClassificationWhatsappMessage,
+  classificationEntryTypeLabel,
+} from '../../constants/classification-whatsapp.util';
 
 const DEFAULT_PAGE_SIZE = 10;
-
-const amountFormatter = new Intl.NumberFormat('ar-EG', { maximumFractionDigits: 2 });
-const formatMoney = (value: number): string =>
-  `${amountFormatter.format(value ?? 0)} ${environment.currency}`;
 
 /**
  * Company-wide ledger for one capital classification: every tagged deposit
@@ -46,7 +48,6 @@ const formatMoney = (value: number): string =>
     ModalComponent,
     PaginationComponent,
     BadgeComponent,
-    VoucherNumberComponent,
     CurrencyArPipe,
     DateArPipe,
   ],
@@ -58,6 +59,7 @@ export class CapitalClassificationStatementModalComponent {
   readonly closed = output<void>();
 
   private readonly service = inject(CapitalClassificationsService);
+  private readonly toast = inject(ToastService);
 
   protected readonly statement = signal<CapitalClassificationStatement | null>(null);
   protected readonly loading = signal(false);
@@ -69,6 +71,8 @@ export class CapitalClassificationStatementModalComponent {
   protected readonly pageSize = signal(DEFAULT_PAGE_SIZE);
   /** Period the displayed totals were computed for (from the request, not the draft inputs). */
   private readonly appliedPeriod = signal<DatePeriod | null>(null);
+  /** Fetching every page for the WhatsApp message. */
+  protected readonly sharing = signal(false);
 
   protected readonly title = computed(
     () => `كشف حساب تصنيف — ${this.classification()?.name ?? ''}`,
@@ -77,6 +81,18 @@ export class CapitalClassificationStatementModalComponent {
   protected readonly count = computed(() => this.statement()?.entries?.count ?? 0);
   protected readonly totalPages = computed(() => this.statement()?.entries?.totalPages ?? 0);
   protected readonly hasDates = computed(() => !!this.fromDate() || !!this.toDate());
+
+  /**
+   * Serial of the first row on the shown page — rows are numbered 1, 2, 3…
+   * in statement order across pages (taken from the loaded page, so numbers
+   * stay right while the next page is still loading).
+   */
+  protected readonly rowOffset = computed(() => {
+    const page = this.statement()?.entries;
+    return Math.max(0, ((page?.pageIndex ?? 1) - 1) * (page?.pageSize ?? this.pageSize()));
+  });
+
+  protected readonly typeLabel = classificationEntryTypeLabel;
   /** Totals are period-scoped server-side — say so on the net card. */
   protected readonly netBalanceLabel = computed(() =>
     withPeriod('صافي الرصيد', this.appliedPeriod()),
@@ -100,23 +116,51 @@ export class CapitalClassificationStatementModalComponent {
   }
 
   /**
-   * Shares the displayed summary (totals of the applied period) as a WhatsApp
-   * message — the user chooses the recipient inside WhatsApp.
+   * Shares the full statement on WhatsApp — every movement of the applied
+   * period (all pages), numbered like the table, plus the totals. The user
+   * chooses the recipient inside WhatsApp.
    */
   protected shareOnWhatsApp(): void {
     const st = this.statement();
     const c = this.classification();
-    if (!st || !c) return;
+    if (!st || !c || this.sharing()) return;
 
-    const lines = [
-      `📊 كشف حساب تصنيف: ${c.name}`,
-      `الفترة: ${describePeriod(this.appliedPeriod()) ?? 'كل الفترات'}`,
-      `إجمالي الإيداعات: ${formatMoney(st.totalDeposits)}`,
-      `إجمالي السحوبات: ${formatMoney(st.totalWithdrawals)}`,
-      `صافي الرصيد: ${formatMoney(st.netBalance)}`,
-      `عدد الحركات: ${amountFormatter.format(st.entries?.count ?? 0)}`,
-    ];
-    openWhatsAppShare(lines.join('\n'));
+    // Reserved inside the click so the popup isn't blocked after the fetch.
+    const share = reserveWhatsAppShare();
+    const period = this.appliedPeriod();
+    this.sharing.set(true);
+
+    fetchAllPages<CapitalClassificationStatementEntry>((pageIndex, pageSize) =>
+      this.service
+        .statement(
+          c.id,
+          {
+            pageIndex,
+            pageSize,
+            fromDate: period?.fromDate || undefined,
+            toDate: period?.toDate || undefined,
+          },
+          true,
+        )
+        .pipe(map((res) => res.entries)),
+    ).subscribe({
+      next: (entries) => {
+        this.sharing.set(false);
+        share.send(
+          buildClassificationWhatsappMessage(
+            c.name,
+            st,
+            entries,
+            `الفترة: ${describePeriod(period) ?? 'كل الفترات'}`,
+          ),
+        );
+      },
+      error: (err: ApiError) => {
+        this.sharing.set(false);
+        share.cancel();
+        this.toast.error(apiErrorToMessage(err, 'تعذّر تجهيز كشف الحساب للمشاركة'));
+      },
+    });
   }
 
   protected isDeposit(e: CapitalClassificationStatementEntry): boolean {
