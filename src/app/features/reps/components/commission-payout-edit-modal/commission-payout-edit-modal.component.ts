@@ -20,6 +20,7 @@ import { apiErrorToMessage } from '../../../../core/utils/api-error.util';
 import { TreasuryService } from '../../../treasury/services/treasury.service';
 import { RepsService } from '../../services/reps.service';
 import { CommissionPayoutRow } from '../../models/rep.model';
+import { VoucherNumberComponent } from '../../../../shared/components/voucher-number/voucher-number.component';
 
 /**
  * Admin: edits a previously recorded commission payout voucher
@@ -30,6 +31,7 @@ import { CommissionPayoutRow } from '../../models/rep.model';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    VoucherNumberComponent,
     ReactiveFormsModule,
     ModalComponent,
     FormErrorComponent,

@@ -27,8 +27,12 @@ export interface BalanceAssets {
 }
 
 export interface BalanceObligations {
+  /** Shareholders' capital + the company balance. */
   readonly shareholdersCapitalTotal: number;
+  /** First entry is the synthetic company row ({@link COMPANY_SHAREHOLDER_ID}). */
   readonly shareholders: readonly BalanceShareholder[];
+  /** The company balance on its own (also included in the two fields above). */
+  readonly companyBalance: number;
   readonly profit: BalanceProfit;
   readonly supplierPayablesTotal: number;
   readonly suppliers: readonly BalanceSupplier[];
@@ -62,6 +66,9 @@ export interface BalanceSubAccount {
   readonly representativeId: number | null;
   readonly balance: number;
 }
+
+/** Id of the synthetic "الشركة" line the API prepends to `obligations.shareholders`. */
+export const COMPANY_SHAREHOLDER_ID = 0;
 
 export interface BalanceShareholder {
   readonly id: number;

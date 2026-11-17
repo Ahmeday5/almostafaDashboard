@@ -90,6 +90,15 @@
       توزيع ربح المساهمين
       <app-profit-info field="MonthlyProfitDistribution.ShareholdersPool" [fallback]="hints.shareholdersPool" />
     </h3>
+    @if (companyDirectShare(); as c) {
+      <p class="md-note" role="note">
+        نصيب الشركة المباشر برصيدها:
+        <span class="md-num">{{ c.percentage | percentAr }}</span>
+        من ربح المساهمين =
+        <ng-container *ngTemplateOutlet="amt; context: { $implicit: c.amount }" />
+        — لذلك مجموع نسب المساهمين أقل من 100%، والإجماليات تشمل نصيب الشركة.
+      </p>
+    }
     <app-profit-shareholders-table
       [rows]="r.shareholders"
       [columns]="shareholderColumns"

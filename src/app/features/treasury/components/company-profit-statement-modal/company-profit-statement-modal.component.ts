@@ -7,31 +7,42 @@ import {
   input,
   output,
   signal,
+  untracked,
 } from '@angular/core';
 
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { PaginationComponent } from '../../../../shared/components/pagination/pagination.component';
 import { BadgeComponent } from '../../../../shared/components/badge/badge.component';
+import { VoucherNumberComponent } from '../../../../shared/components/voucher-number/voucher-number.component';
 import { CurrencyArPipe } from '../../../../shared/pipes/currency-ar.pipe';
 import { DateArPipe } from '../../../../shared/pipes/date-ar.pipe';
+import { AmountArPipe } from '../../../../shared/pipes/amount-ar.pipe';
+import { DatePeriod, withPeriod } from '../../../../shared/utils/period-label.util';
 import { ApiError } from '../../../../core/models/api-response.model';
 import { ToastService } from '../../../../core/services/toast.service';
-
-import { AmountArPipe } from '../../../../shared/pipes/amount-ar.pipe';
+import { DialogService } from '../../../../core/services/dialog.service';
+import { apiErrorToMessage } from '../../../../core/utils/api-error.util';
 import { environment } from '../../../../../environments/environment';
 
 import { ShareholdersService } from '../../services/shareholders.service';
 import {
+  CompanyProfitEntry,
   CompanyProfitStatement,
   CompanyProfitStatementQuery,
 } from '../../models/company-profit-statement.model';
 import { toCompanyProfitEntryRow } from '../../constants/company-profit-labels';
+import { CompanyBalanceModalComponent } from '../company-balance-modal/company-balance-modal.component';
 
 const DEFAULT_PAGE_SIZE = 10;
 
 /** Half a piaster — anything smaller is floating-point/rounding noise, not a real gap. */
 const DIFFERENCE_TOLERANCE = 0.005;
 
+/**
+ * Company balance ledger: settlements, capitalisations, profit shares,
+ * treasury transfers and manual deposits/withdrawals. Manual lines
+ * (`isEditable`) can be edited/deleted in place.
+ */
 @Component({
   selector: 'app-company-profit-statement-modal',
   standalone: true,
@@ -40,6 +51,8 @@ const DIFFERENCE_TOLERANCE = 0.005;
     ModalComponent,
     PaginationComponent,
     BadgeComponent,
+    VoucherNumberComponent,
+    CompanyBalanceModalComponent,
     CurrencyArPipe,
     AmountArPipe,
     DateArPipe,
@@ -53,20 +66,27 @@ export class CompanyProfitStatementModalComponent {
 
   private readonly service = inject(ShareholdersService);
   private readonly toast = inject(ToastService);
+  private readonly dialog = inject(DialogService);
 
   protected readonly statement = signal<CompanyProfitStatement | null>(null);
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  // ── date filters ──
+  // ── date filters (draft — applied on explicit click) ──
   protected readonly fromDate = signal('');
   protected readonly toDate = signal('');
+  /** Period the displayed totals were computed for (set from the request, not the draft). */
+  private readonly appliedPeriod = signal<DatePeriod | null>(null);
 
   // ── pagination ──
   protected readonly pageIndex = signal(1);
   protected readonly pageSize = signal(DEFAULT_PAGE_SIZE);
   protected readonly count = signal(0);
   protected readonly totalPages = signal(0);
+
+  // ── row edit / delete ──
+  protected readonly editing = signal<CompanyProfitEntry | null>(null);
+  protected readonly deletingId = signal<number | null>(null);
 
   // ── derived ──
   protected readonly currency = environment.currency;
@@ -81,25 +101,26 @@ export class CompanyProfitStatementModalComponent {
     return Math.abs(diff) >= DIFFERENCE_TOLERANCE ? diff : null;
   });
 
-  protected readonly hasFilters = computed(
-    () => !!this.fromDate() || !!this.toDate(),
+  protected readonly hasFilters = computed(() => !!this.fromDate() || !!this.toDate());
+
+  protected readonly netBalanceLabel = computed(() =>
+    withPeriod('صافي الرصيد', this.appliedPeriod()),
   );
 
-  private loaded = false;
-
   constructor() {
+    // Refetch on every open: the ledger moves with every profit recorded
+    // anywhere in the system, so a stale copy from a previous open is wrong.
     effect(
       () => {
         if (!this.open()) return;
-        if (this.loaded) return;
-        this.loaded = true;
-        this.fetch(1, this.pageSize(), false);
+        untracked(() => this.fetch(this.pageIndex(), this.pageSize(), false));
       },
       { allowSignalWrites: true },
     );
   }
 
   protected close(): void {
+    if (this.editing()) return;
     this.closed.emit();
   }
 
@@ -115,8 +136,7 @@ export class CompanyProfitStatementModalComponent {
   protected clearDates(): void {
     this.fromDate.set('');
     this.toDate.set('');
-    this.pageIndex.set(1);
-    this.fetch(1, this.pageSize(), true);
+    this.applyDates();
   }
 
   protected onPageChange(page: number): void {
@@ -128,6 +148,66 @@ export class CompanyProfitStatementModalComponent {
     this.pageSize.set(size);
     this.pageIndex.set(1);
     this.fetch(1, size, false);
+  }
+
+  // ─────────── edit ───────────
+
+  protected openEdit(entry: CompanyProfitEntry): void {
+    this.editing.set(entry);
+  }
+
+  protected closeEdit(): void {
+    this.editing.set(null);
+  }
+
+  protected onEdited(): void {
+    this.editing.set(null);
+    this.afterWrite();
+  }
+
+  // ─────────── delete ───────────
+
+  protected async confirmDelete(entry: CompanyProfitEntry): Promise<void> {
+    if (this.deletingId() !== null) return;
+    const kind = entry.voucherType === 'Receipt' ? 'الإيداع' : 'السحب';
+    const ok = await this.dialog.confirm({
+      title: 'حذف عملية على رصيد الشركة',
+      message:
+        `هل أنت متأكد من حذف عملية ${kind} بمبلغ ${entry.amount.toLocaleString('ar-EG')} ${this.currency}؟ ` +
+        'سيتم عكس أثرها على رصيد الشركة وعلى الخزينة. هذا الإجراء لا يمكن التراجع عنه.',
+      confirmText: 'حذف',
+      cancelText: 'إلغاء',
+      type: 'danger',
+    });
+    if (!ok) return;
+
+    this.deletingId.set(entry.id);
+    this.service.deleteCompanyBalanceTransaction(entry.id).subscribe({
+      next: () => {
+        this.deletingId.set(null);
+        this.toast.success('تم حذف العملية وعكس أثرها بنجاح');
+        // Step back if we just emptied the last page.
+        if (this.rows().length === 1 && this.pageIndex() > 1) {
+          this.pageIndex.update((p) => p - 1);
+        }
+        this.afterWrite();
+      },
+      error: (err: ApiError) => {
+        this.deletingId.set(null);
+        this.toast.error(apiErrorToMessage(err, 'تعذّر حذف العملية'));
+      },
+    });
+  }
+
+  // ─────────── internals ───────────
+
+  /**
+   * Writes invalidate the `shareholder` + `treasur` cache scopes, which makes
+   * the shareholders page reload its list and summary on its own
+   * (`onInvalidate`); this modal only has to reload the ledger itself.
+   */
+  private afterWrite(): void {
+    this.fetch(this.pageIndex(), this.pageSize(), true);
   }
 
   private fetch(pageIndex: number, pageSize: number, force: boolean): void {
@@ -148,17 +228,19 @@ export class CompanyProfitStatementModalComponent {
     stream$.subscribe({
       next: (res) => {
         this.statement.set(res);
+        this.appliedPeriod.set({ fromDate: query.fromDate, toDate: query.toDate });
         this.count.set(res.entries.count ?? 0);
         this.totalPages.set(res.entries.totalPages ?? 0);
         this.loading.set(false);
       },
       error: (err: ApiError) => {
+        const msg = apiErrorToMessage(err, 'تعذّر تحميل كشف الحساب');
         this.statement.set(null);
         this.count.set(0);
         this.totalPages.set(0);
-        this.error.set(err?.message || 'تعذّر تحميل كشف الحساب');
+        this.error.set(msg);
         this.loading.set(false);
-        this.toast.error(err?.message || 'تعذّر تحميل كشف الحساب');
+        this.toast.error(msg);
       },
     });
   }

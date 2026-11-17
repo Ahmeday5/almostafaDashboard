@@ -86,6 +86,9 @@ export const API_ENDPOINTS = {
       `dashboard/shareholders/capital-classifications/${id}/statement`,
     /** POST: direct deposit/withdrawal on the company balance. */
     companyBalanceTransactions: 'dashboard/shareholders/company-balance/transactions',
+    /** PUT edit / DELETE (reverses balance + treasury) one manual deposit/withdrawal. */
+    companyBalanceTransactionById: (id: number) =>
+      `dashboard/shareholders/company-balance/transactions/${id}`,
     /** POST (Admin, one-time): move legacy company cash back to the operating treasuries. */
     companyBalanceReconcile: 'dashboard/shareholders/company-balance/reconcile-historical',
   },

@@ -1,9 +1,9 @@
 <app-modal
   [open]="open()"
-  title="كشف حساب أرباح الشركة"
+  title="كشف حساب الشركة"
   size="xl"
-  [closeOnBackdrop]="!loading()"
-  [closeOnEsc]="!loading()"
+  [closeOnBackdrop]="!loading() && !editing()"
+  [closeOnEsc]="!loading() && !editing()"
   (closed)="close()"
 >
   <!-- ── SUMMARY CARDS ── -->
@@ -17,6 +17,10 @@
         <div class="cps-sc-label">إجمالي المدفوع</div>
         <div class="cps-sc-val">{{ st.totalPaid | currencyAr: true }}</div>
       </div>
+      <div class="cps-sc cps-sc-net">
+        <div class="cps-sc-label">{{ netBalanceLabel() }}</div>
+        <div class="cps-sc-val" [class.cps-out]="st.netBalance < 0">{{ st.netBalance | currencyAr: true }}</div>
+      </div>
       <div class="cps-sc cps-sc-bal">
         <div class="cps-sc-label">الرصيد الحالي</div>
         <div class="cps-sc-val">{{ st.currentBalance | currencyAr: true }}</div>
@@ -28,7 +32,7 @@
     <div class="cps-diff-warning" role="alert">
       <span class="cps-diff-icon" aria-hidden="true">⚠</span>
       <span>
-        يوجد فرق غير مفسر في رصيد الخزنة:
+        يوجد فرق غير مفسر في رصيد الشركة:
         <strong class="cps-diff-amount">{{ diff | amountAr }} {{ currency }}</strong>
       </span>
     </div>
@@ -37,8 +41,9 @@
   <!-- ── DATE FILTER ── -->
   <div class="cps-filter">
     <div class="cps-filter-group">
-      <label class="cps-filter-label">من تاريخ</label>
+      <label class="cps-filter-label" for="cps-from">من تاريخ</label>
       <input
+        id="cps-from"
         type="date"
         class="form-control form-control-sm"
         [value]="fromDate()"
@@ -46,8 +51,9 @@
       />
     </div>
     <div class="cps-filter-group">
-      <label class="cps-filter-label">إلى تاريخ</label>
+      <label class="cps-filter-label" for="cps-to">إلى تاريخ</label>
       <input
+        id="cps-to"
         type="date"
         class="form-control form-control-sm"
         [value]="toDate()"
@@ -55,19 +61,9 @@
       />
     </div>
     <div class="cps-filter-actions">
-      <button
-        type="button"
-        class="btn btn-sm btn-bl"
-        [disabled]="loading()"
-        (click)="applyDates()"
-      >تطبيق</button>
+      <button type="button" class="btn btn-sm btn-bl" [disabled]="loading()" (click)="applyDates()">تطبيق</button>
       @if (hasFilters()) {
-        <button
-          type="button"
-          class="btn btn-sm"
-          [disabled]="loading()"
-          (click)="clearDates()"
-        >مسح</button>
+        <button type="button" class="btn btn-sm" [disabled]="loading()" (click)="clearDates()">مسح</button>
       }
       <button
         type="button"
@@ -93,37 +89,61 @@
       <thead>
         <tr>
           <th class="cps-w-date">التاريخ</th>
+          <th class="cps-w-voucher">رقم السند</th>
           <th class="cps-w-type">النوع</th>
           <th class="cps-w-ref">المرجع</th>
-          <th>المساهم / الخزنة</th>
+          <th>المساهم</th>
+          <th>الخزينة</th>
+          <th>التصنيف</th>
           <th class="cps-w-amount">المبلغ</th>
           <th class="cps-w-amount">الرصيد بعد</th>
           <th>ملاحظات</th>
+          <th class="cps-w-actions"><span class="visually-hidden">إجراءات</span></th>
         </tr>
       </thead>
       <tbody>
-        @for (row of rows(); track row.entry.source + ':' + row.entry.id) {
+        @for (row of rows(); track row.key) {
           @let e = row.entry;
           <tr>
             <td class="cps-date">{{ e.date | dateAr: 'short' }}</td>
-            <td>
-              <app-badge [text]="row.voucherLabel" [type]="row.voucherBadge" />
-            </td>
-            <td>
-              <app-badge [text]="row.referenceLabel" [type]="row.referenceBadge" />
-            </td>
-            <td class="cps-shareholder" [class.cps-treasury]="row.isTransfer">{{ row.counterparty }}</td>
+            <td><app-voucher-number [value]="e.voucherNumber" /></td>
+            <td><app-badge [text]="row.voucherLabel" [type]="row.voucherBadge" /></td>
+            <td><app-badge [text]="row.referenceLabel" [type]="row.referenceBadge" /></td>
+            <td class="cps-shareholder">{{ row.shareholder }}</td>
+            <td class="cps-treasury">{{ row.treasury }}</td>
+            <td class="cps-muted">{{ row.classification }}</td>
             <td class="cps-amount" [class.cps-in]="row.inflow" [class.cps-out]="!row.inflow">
               {{ row.inflow ? '+' : '−' }}{{ e.amount | currencyAr: true }}
             </td>
-            <td style="color:var(--bl);font-weight:700">
-              {{ e.balanceAfter | currencyAr: true }}
-            </td>
+            <td class="cps-after">{{ e.balanceAfter | currencyAr: true }}</td>
             <td class="cps-notes" [title]="e.notes ?? ''">{{ e.notes || '—' }}</td>
+            <td>
+              @if (row.editable) {
+                <div class="d-inline-flex gap-1">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-bl"
+                    [disabled]="loading() || deletingId() === e.id"
+                    (click)="openEdit(e)"
+                  >تعديل</button>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-re d-inline-flex align-items-center gap-1"
+                    [disabled]="loading() || deletingId() !== null"
+                    (click)="confirmDelete(e)"
+                  >
+                    @if (deletingId() === e.id) {
+                      <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    }
+                    <span>حذف</span>
+                  </button>
+                </div>
+              }
+            </td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="7" class="text-center py-4" style="color:var(--txt3);font-size:12px">
+            <td colspan="11" class="text-center py-4" style="color:var(--txt3);font-size:12px">
               @if (loading()) {
                 جاري التحميل...
               } @else if (hasFilters()) {
@@ -154,3 +174,11 @@
     <button type="button" class="btn" (click)="close()">إغلاق</button>
   </ng-container>
 </app-modal>
+
+<app-company-balance-modal
+  [open]="editing() !== null"
+  [transaction]="editing()"
+  [balance]="statement()?.currentBalance ?? 0"
+  (closed)="closeEdit()"
+  (saved)="onEdited()"
+/>

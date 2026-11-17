@@ -24,6 +24,7 @@ import {
   SupplierStatementQuery,
 } from '../../models/supplier.model';
 import { PrintService } from '../../../../core/services/print.service';
+import { VoucherNumberComponent } from '../../../../shared/components/voucher-number/voucher-number.component';
 
 const STATUS_BADGE: Record<SupplierStatementInvoiceStatus, BadgeType> = {
   Draft: 'info',
@@ -47,6 +48,7 @@ const STATUS_LABEL: Record<SupplierStatementInvoiceStatus, string> = {
   selector: 'app-supplier-statement-modal',
   standalone: true,
   imports: [
+    VoucherNumberComponent,
     ReactiveFormsModule,
     DecimalPipe,
     ModalComponent,

@@ -232,6 +232,10 @@ export interface ShareholderPendingProfit {
 export interface ShareholderProfitShare {
   shareholderId?: number;
   shareholderName: string;
+  /**
+   * Share of (shareholders' capital + company balance) — so the shareholders'
+   * percentages sum to < 100%; the remainder is the company's own share.
+   */
   contributionPercentage: number;
   poolShare: number;
   companyPercentage: number;
@@ -303,7 +307,10 @@ export interface MonthlyProfitDistribution extends MonthlyRowBase {
   representativesProfit: number;
   /** netProfit − representativesProfit. 0 when scoped to a representative. */
   shareholdersPool: number;
-  /** Company's cut of the pool. 0 when scoped to a representative. */
+  /**
+   * The company's own share of the pool (by its balance) + its percentage of
+   * every shareholder's share. 0 when scoped to a representative.
+   */
   companyProfit: number;
   /** 0 when scoped to a representative. */
   shareholdersProfit: number;

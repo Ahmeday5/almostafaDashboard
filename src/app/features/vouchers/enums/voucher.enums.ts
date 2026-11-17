@@ -26,6 +26,8 @@ export enum ReferenceType {
   SubAccountTransfer = 'SubAccountTransfer',
   RepresentativeCommission = 'RepresentativeCommission',
   ShareholderProfitCapitalization = 'ShareholderProfitCapitalization',
+  /** Manual deposit/withdrawal on the company balance. */
+  CompanyCapitalAdjustment = 'CompanyCapitalAdjustment',
 }
 
 export enum RelatedPartyType {

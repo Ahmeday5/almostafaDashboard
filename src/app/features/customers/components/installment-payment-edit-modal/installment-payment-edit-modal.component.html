@@ -3,7 +3,7 @@
 
   @if (payment(); as p) {
   <div class="ipe-intro">
-    <span>{{ p.voucherNumber }}</span>
+    <app-voucher-number [value]="p.voucherNumber" />
     <span class="ipe-sep">|</span>
     <span>المبلغ الحالي: <strong>{{ p.amount | currencyAr: true }}</strong></span>
     @if (p.treasuryName) {

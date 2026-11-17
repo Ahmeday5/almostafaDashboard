@@ -1,16 +1,23 @@
 <app-modal
   [open]="open()"
-  title="رصيد الشركة — إيداع / سحب"
+  [title]="title()"
   size="md"
   [closeOnBackdrop]="!submitting()"
   [closeOnEsc]="!submitting()"
   (closed)="close()"
 >
+  @if (transaction(); as tx) {
+    <div class="d-flex align-items-center gap-2 mb-2" style="font-size:11px;color:var(--txt2)">
+      <span>رقم السند:</span>
+      <app-voucher-number [value]="tx.voucherNumber" />
+    </div>
+  }
+
   <form [formGroup]="form" (ngSubmit)="submit()" novalidate autocomplete="off">
     <div class="row g-3">
       <div class="col-12 col-md-6">
         <label class="form-label">نوع العملية <span class="text-danger">*</span></label>
-        <select class="form-select" formControlName="type" (change)="onTypeChange($any($event.target).value)">
+        <select class="form-select" formControlName="type">
           @for (opt of typeOptions; track opt.value) {
             <option [value]="opt.value">{{ opt.label }}</option>
           }
@@ -19,16 +26,36 @@
 
       <div class="col-12 col-md-6">
         <label class="form-label">المبلغ <span class="text-danger">*</span></label>
-        <input
-          type="number"
-          class="form-control"
-          formControlName="amount"
-          min="0"
-          step="0.01"
-          dir="ltr"
-          (input)="onAmountChange($any($event.target).value)"
-        />
+        <input type="number" class="form-control" formControlName="amount" min="0" step="0.01" dir="ltr" />
         <app-form-error [control]="form.controls.amount" label="المبلغ" />
+      </div>
+
+      <div class="col-12 col-md-6">
+        <label class="form-label">
+          الخزينة
+          @if (!isEdit()) {
+            <span class="text-danger">*</span>
+          }
+        </label>
+        <app-searchable-select
+          formControlName="treasuryId"
+          [options]="treasuryOptions()"
+          [isDisabled]="treasuriesLoading()"
+          [placeholder]="isLegacy() ? 'بدون خزينة (عملية قديمة)' : 'اختر الخزينة'"
+          searchPlaceholder="ابحث باسم الخزينة…"
+        />
+        <app-form-error [control]="form.controls.treasuryId" label="الخزينة" />
+      </div>
+
+      <div class="col-12 col-md-6">
+        <label class="form-label">التصنيف <span class="form-label-hint">(اختياري)</span></label>
+        <app-searchable-select
+          formControlName="capitalClassificationId"
+          [options]="classificationOptions()"
+          [isDisabled]="classificationsLoading()"
+          placeholder="بدون تصنيف"
+          searchPlaceholder="ابحث باسم التصنيف…"
+        />
       </div>
 
       <div class="col-12 col-md-6">
@@ -49,8 +76,19 @@
     </div>
 
     <div class="alert alert-info mt-2 mb-0 py-2" role="note" style="font-size:11px">
-      تظهر العملية في سجل عمليات الخزينة ويمكن تعديلها أو حذفها من هناك.
+      @if (draftType() === 'Receipt') {
+        الإيداع يُدخل مبلغًا فعليًا في الخزينة المختارة ويزيد رصيد الشركة.
+      } @else {
+        السحب يُخرج مبلغًا فعليًا من الخزينة المختارة ويقلل رصيد الشركة.
+      }
+      تظهر العملية في كشف حساب الشركة وفي سجل عمليات الخزينة، ويمكن تعديلها أو حذفها من أيٍّ منهما.
     </div>
+
+    @if (isLegacy()) {
+      <div class="alert alert-warning mt-2 mb-0 py-2" role="note" style="font-size:11px">
+        عملية قديمة بدون خزينة — اتركها فارغة للإبقاء عليها كما هي، أو اختر خزينة لربطها بها.
+      </div>
+    }
 
     @if (serverError(); as msg) {
       <div class="alert alert-danger mt-2 mb-0" role="alert" style="font-size:11px">{{ msg }}</div>
@@ -68,7 +106,7 @@
       @if (submitting()) {
         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
       }
-      <span>{{ submitting() ? 'جاري الحفظ...' : (draftType() === 'Receipt' ? 'تسجيل إيداع' : 'تسجيل سحب') }}</span>
+      <span>{{ submitLabel() }}</span>
     </button>
   </ng-container>
 </app-modal>

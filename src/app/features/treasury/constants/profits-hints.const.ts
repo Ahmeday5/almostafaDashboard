@@ -14,6 +14,7 @@ export const PROFITS_HINTS = {
   representativeProfit: 'العمولة المستحقة للمندوب واللي لسه ما اتصرفتلوش',
   accruedProfit: 'الأرباح المستحقة للمساهم ولم تُسوَّ بعد',
   companyPercentage: 'النسبة اللي بتاخدها الشركة من نصيب المساهم',
+  contributionPercentage: 'رأس مال المساهم ÷ (إجمالي رأس مال المساهمين + رصيد الشركة)',
   companyShare: 'نصيب المساهم × نسبة الشركة',
   shareholderShare: 'نصيب المساهم − حصة الشركة',
 
@@ -41,7 +42,7 @@ export const PROFITS_HINTS = {
   distributionNetProfit: 'صافي الربح من جدول أرباح المبيعات',
   representativesProfit: 'إجمالي أرباح المناديب في الشهر (عمولات + نسبة الإيرادات − نسبة المصروفات)',
   shareholdersPool: 'صافي الربح − أرباح المناديب',
-  companyProfit: 'مجموع حصة الشركة من نصيب كل مساهم',
+  companyProfit: 'نصيب الشركة المباشر برصيدها + مجموع حصة الشركة من نصيب كل مساهم',
   shareholdersProfit: 'مجموع صافي نصيب المساهمين بعد خصم حصة الشركة',
   distributedProfit: 'أرباح المناديب + أرباح الشركة + أرباح المساهمين',
   monthlyRepresentativeProfit: 'أرباح المندوب في الشهر',

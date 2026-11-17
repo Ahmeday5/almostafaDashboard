@@ -29,13 +29,45 @@ export interface ShareholdersSummary {
   totalIncludingCompany: number;
 }
 
-/** `POST shareholders/company-balance/transactions` — Receipt = إيداع, Payment = سحب. */
+/** Receipt = إيداع (cash in → balance up), Payment = سحب (cash out → balance down). */
+export type CompanyBalanceTransactionType = 'Receipt' | 'Payment';
+
+/**
+ * Body of `POST` and `PUT shareholders/company-balance/transactions[/{id}]`.
+ *
+ * PUT semantics differ per field — callers editing a row must resend the
+ * current values for anything they don't intend to change:
+ *   - `treasuryId: null`              keeps the stored treasury (POST rejects it).
+ *   - `capitalClassificationId: null` CLEARS the classification.
+ */
 export interface CompanyBalanceTransactionPayload {
-  type: 'Receipt' | 'Payment';
+  type: CompanyBalanceTransactionType;
+  /** Strictly positive. */
   amount: number;
-  /** `yyyy-MM-dd`. */
-  date: string;
+  /** `yyyy-MM-dd`; null lets the server use today. */
+  date: string | null;
+  treasuryId: number | null;
+  capitalClassificationId: number | null;
   notes: string | null;
+}
+
+/** `CompanyBalanceTransactionDto` — response of the POST / PUT above. */
+export interface CompanyBalanceTransaction {
+  id: number;
+  voucherNumber: string;
+  type: CompanyBalanceTransactionType;
+  direction: 'Deposit' | 'Withdrawal';
+  amount: number;
+  /** Company balance right after this operation. */
+  balanceAfter: number;
+  date: string;
+  /** Null on legacy operations recorded before treasuries were required. */
+  treasuryId: number | null;
+  treasuryName: string | null;
+  capitalClassificationId: number | null;
+  capitalClassificationName: string | null;
+  notes: string | null;
+  userName: string | null;
 }
 
 export interface ReconcileTreasuryLine {

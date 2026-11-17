@@ -361,7 +361,7 @@
     </div>
   } @else if (editTarget()) {
   <div class="vd-list mb-3" style="font-size:13px;color:var(--txt3)">
-    <span>{{ editTarget()!.voucherNumber }}</span>
+    <app-voucher-number [value]="editTarget()!.voucherNumber" />
     <span class="mx-2">|</span>
     <span>{{ editTarget()!.type | voucherTypeLabel }}</span>
     <span class="mx-2">|</span>

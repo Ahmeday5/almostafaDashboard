@@ -25,6 +25,7 @@ import {
   UpdateInstallmentPaymentPayload,
 } from '../../models/client-statement.model';
 import { describeAllocations } from '../../utils/installment-schedule.util';
+import { VoucherNumberComponent } from '../../../../shared/components/voucher-number/voucher-number.component';
 
 interface EditPaymentForm {
   amount: number;
@@ -46,7 +47,12 @@ const EMPTY_FORM: EditPaymentForm = { amount: 0, treasuryId: null, date: '', not
   selector: 'app-installment-payment-edit-modal',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ModalComponent, CurrencyArPipe],
+  imports: [
+    VoucherNumberComponent,
+    FormsModule,
+    ModalComponent,
+    CurrencyArPipe,
+  ],
   templateUrl: './installment-payment-edit-modal.component.html',
   styleUrl: './installment-payment-edit-modal.component.scss',
 })

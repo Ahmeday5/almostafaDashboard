@@ -6,8 +6,9 @@
   [closeOnEsc]="!submitting()"
   (closed)="closed.emit()"
 >
-  <div class="alert alert-info py-2 mb-3" style="font-size:12px" dir="ltr">
-    {{ payout()?.voucherNumber }}
+  <div class="alert alert-info py-2 mb-3 d-flex align-items-center gap-2" style="font-size:12px">
+    <span>رقم السند:</span>
+    <app-voucher-number [value]="payout()?.voucherNumber" />
   </div>
 
   <form [formGroup]="form" (ngSubmit)="submit()" novalidate>

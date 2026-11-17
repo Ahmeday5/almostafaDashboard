@@ -54,6 +54,7 @@ import { TreasuryService } from '../../../treasury/services/treasury.service';
 import { CustomersService } from '../../../customers/services/customers.service';
 import { SuppliersService } from '../../../suppliers/services/suppliers.service';
 import { LookupItem } from '../../../../core/models/lookup.model';
+import { VoucherNumberComponent } from '../../../../shared/components/voucher-number/voucher-number.component';
 
 interface PartyOption { id: number; name: string; }
 
@@ -65,6 +66,7 @@ const REFETCH_DEBOUNCE_MS = 200;
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    VoucherNumberComponent,
     DecimalPipe,
     FormsModule,
     RouterLink,

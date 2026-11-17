@@ -12,6 +12,7 @@ import {
 } from '../../../core/http/http-context.tokens';
 import { toList, toPaged } from '../../../core/utils/api-list.util';
 import {
+  CompanyBalanceTransaction,
   CompanyBalanceTransactionPayload,
   CreateShareholderPayload,
   ReconcileHistoricalReport,
@@ -53,6 +54,8 @@ import { ShareholderTreasuryLookup } from '../models/shareholder-treasury-lookup
  */
 const SHAREHOLDERS_CACHE_KEY = 'shareholder';
 const TREASURY_CACHE_KEY = 'treasur';
+/** `dashboard/company-profit-statement` matches neither key above. */
+const COMPANY_STATEMENT_CACHE_KEY = 'company-profit-statement';
 
 /** Short TTL: ownership percentages shift whenever any partner is added/removed. */
 const SHAREHOLDERS_TTL_MS = 60 * 1000;
@@ -135,20 +138,47 @@ export class ShareholdersService {
   }
 
   /**
-   * Direct deposit/withdrawal on the company balance. Surfaces as an ordinary
-   * treasury operation, so both scopes are invalidated.
+   * Direct deposit/withdrawal on the company balance, moving real cash in/out
+   * of the chosen treasury. Writes on this resource shift the company balance,
+   * every ownership % and a treasury balance — so they invalidate both scopes.
    */
   createCompanyBalanceTransaction(
     payload: CompanyBalanceTransactionPayload,
-  ): Observable<unknown> {
-    return this.api.post<unknown>(
+  ): Observable<CompanyBalanceTransaction> {
+    return this.api.post<CompanyBalanceTransaction>(
       API_ENDPOINTS.shareholders.companyBalanceTransactions,
       payload,
-      {
-        context: withInlineHandling(
-          withCacheInvalidate([SHAREHOLDERS_CACHE_KEY, TREASURY_CACHE_KEY]),
-        ),
-      },
+      { context: this.companyBalanceWriteContext() },
+    );
+  }
+
+  /** See {@link CompanyBalanceTransactionPayload} for the PUT null semantics. */
+  updateCompanyBalanceTransaction(
+    id: number,
+    payload: CompanyBalanceTransactionPayload,
+  ): Observable<CompanyBalanceTransaction> {
+    return this.api.put<CompanyBalanceTransaction>(
+      API_ENDPOINTS.shareholders.companyBalanceTransactionById(id),
+      payload,
+      { context: this.companyBalanceWriteContext() },
+    );
+  }
+
+  /** Reverses the operation's effect on the company balance and on its treasury. */
+  deleteCompanyBalanceTransaction(id: number): Observable<{ message: string }> {
+    return this.api.delete<{ message: string }>(
+      API_ENDPOINTS.shareholders.companyBalanceTransactionById(id),
+      { context: this.companyBalanceWriteContext() },
+    );
+  }
+
+  private companyBalanceWriteContext() {
+    return withInlineHandling(
+      withCacheInvalidate([
+        SHAREHOLDERS_CACHE_KEY,
+        TREASURY_CACHE_KEY,
+        COMPANY_STATEMENT_CACHE_KEY,
+      ]),
     );
   }
 

@@ -15,6 +15,7 @@ import { PaginationComponent } from '../../../../shared/components/pagination/pa
 import { BadgeComponent } from '../../../../shared/components/badge/badge.component';
 import { CurrencyArPipe } from '../../../../shared/pipes/currency-ar.pipe';
 import { DateArPipe } from '../../../../shared/pipes/date-ar.pipe';
+import { DatePeriod, withPeriod } from '../../../../shared/utils/period-label.util';
 import { ApiError } from '../../../../core/models/api-response.model';
 import { ToastService } from '../../../../core/services/toast.service';
 
@@ -35,7 +36,6 @@ import {
 } from '../../constants/statement-transaction-labels';
 
 const DEFAULT_PAGE_SIZE = 10;
-const VOUCHER_PREFIX_LEN = 18;
 
 @Component({
   selector: 'app-shareholder-statement-modal',
@@ -75,6 +75,9 @@ export class ShareholderStatementModalComponent {
   protected readonly classificationId = signal<number | null>(null);
   protected readonly classifications = signal<CapitalClassification[]>([]);
 
+  /** Period the displayed totals were computed for (from the request, not the draft inputs). */
+  private readonly appliedPeriod = signal<DatePeriod | null>(null);
+
   // ── pagination ──
   protected readonly pageIndex = signal(1);
   protected readonly pageSize = signal(DEFAULT_PAGE_SIZE);
@@ -97,6 +100,16 @@ export class ShareholderStatementModalComponent {
       !!this.toDate() ||
       !!this.txType() ||
       this.classificationId() !== null,
+  );
+
+  /** Totals are date-scoped server-side — the net card names the period. */
+  protected readonly netBalanceLabel = computed(() =>
+    withPeriod('صافي رصيد رأس المال', this.appliedPeriod()),
+  );
+
+  /** Type/classification filters narrow the table only — the totals ignore them. */
+  protected readonly hasRowOnlyFilters = computed(
+    () => !!this.txType() || this.classificationId() !== null,
   );
 
   private lastShId: number | null = null;
@@ -185,13 +198,6 @@ export class ShareholderStatementModalComponent {
     return isStatementInflow(type);
   }
 
-  protected shortVoucher(value: string | undefined): string {
-    if (!value) return '—';
-    return value.length > VOUCHER_PREFIX_LEN
-      ? `${value.slice(0, VOUCHER_PREFIX_LEN)}…`
-      : value;
-  }
-
   private loadClassifications(): void {
     this.classificationsService.listAll().subscribe({
       next: (list) => this.classifications.set(list ?? []),
@@ -224,6 +230,7 @@ export class ShareholderStatementModalComponent {
     stream$.subscribe({
       next: (res) => {
         this.statement.set(res);
+        this.appliedPeriod.set({ fromDate: query.fromDate, toDate: query.toDate });
         this.count.set(res.entries.count ?? 0);
         this.totalPages.set(res.entries.totalPages ?? 0);
         this.loading.set(false);

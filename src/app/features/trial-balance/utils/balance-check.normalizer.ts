@@ -38,6 +38,7 @@ export function normalizeBalanceCheck(raw: unknown): BalanceCheck {
     obligations: {
       shareholdersCapitalTotal: num(obligations['shareholdersCapitalTotal']),
       shareholders: list(obligations['shareholders'], toShareholder),
+      companyBalance: num(obligations['companyBalance']),
       profit: toProfit(asRecord(obligations['profit'])),
       supplierPayablesTotal: num(obligations['supplierPayablesTotal']),
       suppliers: list(obligations['suppliers'], toSupplier),
