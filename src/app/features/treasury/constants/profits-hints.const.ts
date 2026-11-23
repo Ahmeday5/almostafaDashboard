@@ -21,13 +21,13 @@ export const PROFITS_HINTS = {
   shareholderShare: 'نصيب المساهم − حصة الشركة',
 
   // summary
-  totalProfits: 'أرباح المبيعات + الإيرادات المباشرة للسنة',
+  totalProfits: 'إجمالي أرباح السنة — بنفس معادلة ميزان المراجعة',
   collectedProfits: 'نصيب الربح من الفلوس اللي اتحصلت فعلاً خلال السنة',
   summaryDirectRevenues: 'الإيرادات اللي اتسجلت يدوياً بره العقود خلال السنة',
   summaryExpenses: 'إجمالي المصروفات خلال السنة',
   netProfits: 'الأرباح المحصلة + الإيرادات المباشرة − المصروفات',
-  distributedProfits: 'أرباح الشركة + أرباح المساهمين + أرباح المناديب',
-  currentProfits: 'الأرباح الكلية − الأرباح الموزعة',
+  distributedProfits: 'الأرباح اللي اتوزعت فعلاً خلال السنة — مش لازم تساوي صافي الأرباح',
+  currentProfits: 'الأرباح الحالية — بنفس معادلة ميزان المراجعة',
 
   // monthly sales profits
   cashProfit: 'سعر الكاش ناقص تكلفة البضاعة، للعقود اللي اتباعت في الشهر',
@@ -43,9 +43,10 @@ export const PROFITS_HINTS = {
   // monthly distribution
   distributionNetProfit: 'صافي الربح من جدول أرباح المبيعات',
   representativesProfit: 'إجمالي أرباح المناديب في الشهر (عمولات + نسبة الإيرادات − نسبة المصروفات)',
-  shareholdersPool: 'صافي الربح − أرباح المناديب',
+  shareholdersPool: 'ربح المساهمين قبل خصم نسبة الشركة',
   companyProfit: 'نصيب الشركة المباشر برصيدها + مجموع حصة الشركة من نصيب كل مساهم',
   shareholdersProfit: 'مجموع صافي نصيب المساهمين بعد خصم حصة الشركة',
-  distributedProfit: 'أرباح المناديب + أرباح الشركة + أرباح المساهمين',
-  monthlyRepresentativeProfit: 'أرباح المندوب في الشهر',
+  distributedProfit: 'الأرباح اللي اتوزعت فعلاً في الشهر — مش لازم تساوي صافي الربح',
+  representativeEarned: 'العمولة المستحقة للمندوب في الفترة (عمولة العقود + نسبته من الإيرادات − نسبته من المصروفات)',
+  representativePaid: 'العمولة اللي اتصرفت للمندوب فعلاً في الفترة',
 } as const;

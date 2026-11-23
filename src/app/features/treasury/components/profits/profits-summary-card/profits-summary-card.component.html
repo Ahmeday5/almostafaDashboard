@@ -39,14 +39,6 @@
         label: 'صافي الأرباح', value: s.netProfits,
         field: 'Summary.NetProfits', hint: hints.netProfits, strong: true }"
     />
-    @if (showCompanyFigures()) {
-      <span class="ps-op" aria-label="يساوي">=</span>
-      <ng-container
-        *ngTemplateOutlet="term; context: {
-          label: 'الأرباح الموزعة', value: s.distributedProfits,
-          field: 'Summary.DistributedProfits', hint: hints.distributedProfits, strong: true }"
-      />
-    }
   </div>
 
   <dl class="ps-grid">
@@ -57,15 +49,14 @@
       </dt>
       <dd [class.ps-loss]="s.totalProfits < 0">{{ s.totalProfits | amountAr }}</dd>
     </div>
-    @if (!showCompanyFigures()) {
-      <div class="ps-pair">
-        <dt>
-          الأرباح الموزعة
-          <app-profit-info field="Summary.DistributedProfits" [fallback]="hints.distributedProfits" />
-        </dt>
-        <dd [class.ps-loss]="s.distributedProfits < 0">{{ s.distributedProfits | amountAr }}</dd>
-      </div>
-    }
+    <!-- Its own figure — not part of the net-profit equation above. -->
+    <div class="ps-pair">
+      <dt>
+        الأرباح الموزعة
+        <app-profit-info field="Summary.DistributedProfits" [fallback]="hints.distributedProfits" />
+      </dt>
+      <dd [class.ps-loss]="s.distributedProfits < 0">{{ s.distributedProfits | amountAr }}</dd>
+    </div>
     <div class="ps-pair">
       <dt>
         الأرباح الحالية

@@ -6,9 +6,10 @@ import { PROFITS_HINTS } from '../../../constants/profits-hints.const';
 import { ProfitInfoComponent } from '../profit-info/profit-info.component';
 
 /**
- * "الأرباح" block — the year's net-profit equation plus total/current
- * profits. "= الأرباح الموزعة" only holds company-wide, so it's dropped from
- * the equation when scoped to a representative.
+ * "الأرباح" block — the year's net-profit equation plus total, distributed
+ * and current profits. Distributed profits is shown as its own figure, never
+ * equated to net profits (they legitimately differ), and total/current
+ * profits are the server's trial-balance figures, rendered as-is.
  */
 @Component({
   selector: 'app-profits-summary-card',
@@ -20,7 +21,6 @@ import { ProfitInfoComponent } from '../profit-info/profit-info.component';
 })
 export class ProfitsSummaryCardComponent {
   readonly summary = input.required<ProfitsSummary>();
-  readonly showCompanyFigures = input(true);
 
   protected readonly hints = PROFITS_HINTS;
 }

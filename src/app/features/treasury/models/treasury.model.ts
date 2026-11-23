@@ -208,8 +208,16 @@ export interface RepresentativeProfit {
   amount: number;
 }
 
-/** A representative's monthly share, broken down by source. */
+/**
+ * A representative's share for a month (or the year), broken down by source.
+ *
+ * `amount` is what was actually PAID OUT in the period; `earned` is what
+ * accrued (= fromContracts + fromRevenues − fromExpenses). The two differ
+ * whenever payouts lag behind or run ahead of accruals.
+ */
 export interface RepresentativeProfitBreakdown extends RepresentativeProfit {
+  /** Commission accrued in the period. */
+  earned: number;
   /** Commission earned on contracts. */
   fromContracts: number;
   /** Their share of direct revenues (added). */
@@ -266,10 +274,11 @@ export interface ProfitTreasuries {
 }
 
 export interface ProfitsSummary {
-  /** Sales profits + direct revenues for the year. */
+  /** Server-computed — same formula as the trial balance. Never derive it client-side. */
   totalProfits: number;
+  /** Independent of `netProfits` — the two legitimately differ (e.g. 0 for an undistributed year). */
   distributedProfits: number;
-  /** totalProfits − distributedProfits. */
+  /** Server-computed — same formula as the trial balance. Never derive it client-side. */
   currentProfits: number;
   collectedProfits: number;
   directRevenues: number;
@@ -311,7 +320,11 @@ export interface MonthlySalesProfit extends MonthlyRowBase {
 export interface MonthlyProfitDistribution extends MonthlyRowBase {
   netProfit: number;
   representativesProfit: number;
-  /** netProfit − representativesProfit. 0 when scoped to a representative. */
+  /**
+   * Shareholders' profit before the company's cut. Not the sum of
+   * `companyProfit` + `shareholdersProfit` — render as-is, never recompute.
+   * 0 when scoped to a representative.
+   */
   shareholdersPool: number;
   /**
    * The company's own share of the pool (by its balance) + its percentage of
@@ -320,7 +333,7 @@ export interface MonthlyProfitDistribution extends MonthlyRowBase {
   companyProfit: number;
   /** 0 when scoped to a representative. */
   shareholdersProfit: number;
-  /** companyProfit + shareholdersProfit + representativesProfit (= netProfit company-wide). */
+  /** Server-computed; legitimately differs from `netProfit`. */
   distributedProfit: number;
   representatives: RepresentativeProfitBreakdown[];
   /** Empty when scoped to a representative. */

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { AmountArPipe, PercentArPipe } from '../../../../../shared/pipes/amount-ar.pipe';
+import { AmountArPipe } from '../../../../../shared/pipes/amount-ar.pipe';
 import {
   MonthlyProfitDistribution,
   RepresentativeProfit,
@@ -15,8 +15,11 @@ import {
 
 const SH = 'MonthlyProfitDistribution.Shareholders';
 
-/** Below this, a percentage/amount gap is rounding noise. */
-const EPSILON = 0.005;
+interface KeyFigure {
+  label: string;
+  value: number;
+  strong?: boolean;
+}
 
 const SHAREHOLDER_COLUMNS: readonly ShareholderColumn<ShareholderProfitShare>[] = [
   {
@@ -51,15 +54,16 @@ const SHAREHOLDER_COLUMNS: readonly ShareholderColumn<ShareholderProfitShare>[] 
 ];
 
 /**
- * Drill-down of one distribution row (a month, or the yearly total): how the
- * net profit was split between representatives, the company and each
- * shareholder.
+ * Drill-down of one distribution row (a month, or the yearly total): the
+ * representatives', company's and each shareholder's figures. Every figure
+ * is the API's own — the pool, company and shareholder totals are
+ * independent server values, so nothing here adds or subtracts them.
  */
 @Component({
   selector: 'app-profit-month-details',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AmountArPipe, PercentArPipe, NgTemplateOutlet, ProfitInfoComponent, ProfitShareholdersTableComponent],
+  imports: [AmountArPipe, NgTemplateOutlet, ProfitInfoComponent, ProfitShareholdersTableComponent],
   templateUrl: './profit-month-details.component.html',
   styleUrl: './profit-month-details.component.scss',
 })
@@ -81,32 +85,32 @@ export class ProfitMonthDetailsComponent {
     );
   });
 
+  /** Headline figures of the row, straight from the API. */
+  protected readonly keyFigures = computed<readonly KeyFigure[]>(() => {
+    const r = this.row();
+    return [
+      { label: 'صافي الربح', value: r.netProfit, strong: true },
+      { label: 'أرباح المناديب', value: r.representativesProfit },
+      { label: 'ربح المساهمين قبل نسبة الشركة', value: r.shareholdersPool },
+      { label: 'أرباح الشركة', value: r.companyProfit },
+      { label: 'أرباح المساهمين', value: r.shareholdersProfit },
+      { label: 'الأرباح الموزعة', value: r.distributedProfit, strong: true },
+    ];
+  });
+
+  /** Column sums of the listed reps — a plain footer, not a reconciliation. */
   protected readonly repTotals = computed(() =>
     this.reps().reduce(
       (t, r) => ({
         fromContracts: t.fromContracts + r.fromContracts,
         fromRevenues: t.fromRevenues + r.fromRevenues,
         fromExpenses: t.fromExpenses + r.fromExpenses,
+        earned: t.earned + r.earned,
+        paid: t.paid + r.amount,
       }),
-      { fromContracts: 0, fromRevenues: 0, fromExpenses: 0 },
+      { fromContracts: 0, fromRevenues: 0, fromExpenses: 0, earned: 0, paid: 0 },
     ),
   );
-
-  /**
-   * The company now takes its own slice of the pool, pro rata to its balance:
-   * the shareholders' percentages fall short of 100% by exactly that slice.
-   * Derived from the row so the gap between the table body and its (backend)
-   * totals is explained rather than looking like an error. Null when absent.
-   */
-  protected readonly companyDirectShare = computed(() => {
-    const r = this.row();
-    const shareholders = r.shareholders ?? [];
-    const pctSum = shareholders.reduce((s, x) => s + (x.contributionPercentage ?? 0), 0);
-    const poolSum = shareholders.reduce((s, x) => s + (x.poolShare ?? 0), 0);
-    const percentage = Math.max(0, 100 - pctSum);
-    const amount = (r.shareholdersPool ?? 0) - poolSum;
-    return percentage > EPSILON || Math.abs(amount) > EPSILON ? { percentage, amount } : null;
-  });
 
   /** Pool totals are the backend's own figures — they are what the main table shows. */
   protected readonly shareholderTotals = computed(() => {

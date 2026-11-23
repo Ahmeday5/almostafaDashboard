@@ -4,8 +4,9 @@
       {{ v.row[col.key] | amountAr }}
     </td>
   }
-  @for (amount of v.repAmounts; track $index) {
-    <td [class.ps-loss]="amount < 0">{{ amount | amountAr }}</td>
+  @for (cells of v.reps; track $index) {
+    <td class="ps-rep-start" [class.ps-loss]="cells.earned < 0">{{ cells.earned | amountAr }}</td>
+    <td [class.ps-loss]="cells.paid < 0">{{ cells.paid | amountAr }}</td>
   }
 </ng-template>
 
@@ -31,25 +32,43 @@
     <table>
       <thead>
         <tr>
-          <th scope="col" class="ps-month">الشهر</th>
+          <th scope="col" class="ps-month" [attr.rowspan]="headerRowSpan()">الشهر</th>
           @for (col of columns(); track col.key) {
-            <th scope="col" [class.ps-net]="col.strong">
+            <th scope="col" [class.ps-net]="col.strong" [attr.rowspan]="headerRowSpan()">
               {{ col.label }}
               <app-profit-info [field]="field(col.key)" [fallback]="col.hint" />
             </th>
           }
-          @for (rep of representatives(); track rep.representativeId; let first = $first) {
-            <th scope="col">
+          @for (rep of representatives(); track rep.representativeId) {
+            <th scope="colgroup" colspan="2" class="ps-rep-group ps-rep-start">
               أرباح المندوب {{ rep.representativeName }}
-              @if (first) {
-                <app-profit-info
-                  field="MonthlyProfitDistribution.Representatives.Amount"
-                  [fallback]="hints.monthlyRepresentativeProfit"
-                />
-              }
             </th>
           }
         </tr>
+        @if (representatives().length) {
+          <tr>
+            @for (rep of representatives(); track rep.representativeId; let first = $first) {
+              <th scope="col" class="ps-sub ps-rep-start">
+                المستحق
+                @if (first) {
+                  <app-profit-info
+                    field="MonthlyProfitDistribution.Representatives.Earned"
+                    [fallback]="hints.representativeEarned"
+                  />
+                }
+              </th>
+              <th scope="col" class="ps-sub">
+                المصروف
+                @if (first) {
+                  <app-profit-info
+                    field="MonthlyProfitDistribution.Representatives.Amount"
+                    [fallback]="hints.representativePaid"
+                  />
+                }
+              </th>
+            }
+          </tr>
+        }
       </thead>
 
       <tbody>
@@ -74,23 +93,6 @@
       </tfoot>
     </table>
   </div>
-
-  @if (showCompanyFigures()) {
-    @if (balanced()) {
-      <p class="ps-check ps-check-ok" role="status">
-        <span aria-hidden="true">✓</span> الأرباح الموزعة = صافي الأرباح
-      </p>
-    } @else {
-      <p class="ps-check ps-check-warn" role="alert">
-        <span aria-hidden="true">⚠</span>
-        تحذير: إجمالي الأرباح الموزعة
-        <strong [class.ps-loss]="total().row.distributedProfit < 0">{{ total().row.distributedProfit | amountAr }}</strong>
-        لا يساوي صافي الأرباح
-        <strong [class.ps-loss]="expectedNetProfit() < 0">{{ expectedNetProfit() | amountAr }}</strong>
-        — برجاء مراجعة البيانات.
-      </p>
-    }
-  }
 </section>
 
 <app-modal

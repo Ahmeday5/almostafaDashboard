@@ -6,6 +6,7 @@ import {
   MonthlyProfitDistribution,
   MonthlyTable,
   RepresentativeProfit,
+  RepresentativeProfitBreakdown,
 } from '../../../models/treasury.model';
 import { PROFITS_HINTS } from '../../../constants/profits-hints.const';
 import { ProfitInfoComponent } from '../profit-info/profit-info.component';
@@ -47,19 +48,29 @@ const COLUMNS: readonly DistributionColumn[] = [
   { key: 'distributedProfit', label: 'الأرباح الموزعة', hint: PROFITS_HINTS.distributedProfit, strong: true },
 ];
 
-/** Half a cent — anything below is rounding noise. */
-const TOLERANCE = 0.005;
+/** One representative's pair of cells: accrued vs. actually paid out. */
+interface RepresentativeCells {
+  earned: number;
+  paid: number;
+}
+
+const NO_REP_ACTIVITY: RepresentativeCells = { earned: 0, paid: 0 };
 
 interface DistributionViewRow {
   row: MonthlyProfitDistribution;
-  /** Aligned 1:1 with the `representatives` columns. */
-  repAmounts: number[];
+  /** Aligned 1:1 with the `representatives` column groups. */
+  reps: RepresentativeCells[];
 }
 
 /**
- * "توزيع الأرباح الشهرية". Representative columns are dynamic: headers come
- * from `representatives` (treasuries order) and each cell is matched by id —
- * never by index — since a month only lists reps that earned something.
+ * "توزيع الأرباح الشهرية". Representative columns are dynamic: one group per
+ * representative (treasuries order) with "المستحق" and "المصروف" sub-columns,
+ * each cell matched by id — never by index — since a month only lists reps
+ * with activity.
+ *
+ * Every figure is rendered exactly as the API sends it: distributed profit
+ * legitimately differs from net profit, so there is no client-side
+ * reconciliation.
  *
  * Every row (and the yearly total) opens a breakdown of how its net profit
  * was split.
@@ -83,8 +94,6 @@ export class MonthlyProfitDistributionTableComponent {
   readonly representatives = input.required<RepresentativeProfit[]>();
   /** False when scoped to a single representative — company/shareholder figures are 0 then. */
   readonly showCompanyFigures = input(true);
-  /** `monthlySalesProfits.total.netProfit` — the yearly distribution must add up to it. */
-  readonly expectedNetProfit = input.required<number>();
 
   protected readonly hints = PROFITS_HINTS;
   protected readonly selected = signal<MonthlyProfitDistribution | null>(null);
@@ -99,11 +108,8 @@ export class MonthlyProfitDistributionTableComponent {
 
   protected readonly total = computed(() => this.toViewRow(this.table().total));
 
-  /** Company-wide only: a representative's slice never equals the full net profit. */
-  protected readonly balanced = computed(
-    () =>
-      Math.abs(this.table().total.distributedProfit - this.expectedNetProfit()) < TOLERANCE,
-  );
+  /** Fixed columns span both header rows only when the rep sub-header row exists. */
+  protected readonly headerRowSpan = computed(() => (this.representatives().length ? 2 : 1));
 
   protected readonly detailsTitle = computed(() => {
     const row = this.selected();
@@ -118,12 +124,15 @@ export class MonthlyProfitDistributionTableComponent {
   }
 
   private toViewRow(row: MonthlyProfitDistribution): DistributionViewRow {
-    const byId = new Map(
-      (row.representatives ?? []).map((r) => [r.representativeId, r.amount]),
+    const byId = new Map<number, RepresentativeProfitBreakdown>(
+      (row.representatives ?? []).map((r) => [r.representativeId, r]),
     );
     return {
       row,
-      repAmounts: this.representatives().map((rep) => byId.get(rep.representativeId) ?? 0),
+      reps: this.representatives().map((rep) => {
+        const r = byId.get(rep.representativeId);
+        return r ? { earned: r.earned, paid: r.amount } : NO_REP_ACTIVITY;
+      }),
     };
   }
 }
