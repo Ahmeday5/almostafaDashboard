@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { ApiService } from '../../../core/services/api.service';
 import { API_ENDPOINTS } from '../../../core/constants/api-endpoints.const';
 import {
@@ -15,6 +15,8 @@ import {
   withCacheInvalidate,
   withInlineHandling,
 } from '../../../core/http/http-context.tokens';
+import { ROLE_LABELS_AR } from '../../../core/constants/user-roles.const';
+import { UserRole } from '../../../core/models/auth.model';
 
 const APP_USERS_CACHE_KEY = 'app-users';
 
@@ -47,16 +49,20 @@ export class AppUsersService {
   }
 
   getRoles(): Observable<RoleOption[]> {
-    return this.api.get<RoleOption[]>(API_ENDPOINTS.appUsers.roles, {
-      context: withCache({ ttlMs: ROLES_TTL_MS }),
-    });
+    return this.api
+      .get<RoleOption[]>(API_ENDPOINTS.appUsers.roles, {
+        context: withCache({ ttlMs: ROLES_TTL_MS }),
+      })
+      .pipe(map((rs) => this.withLocalRoles(rs)));
   }
 
   /** Force-refresh roles (e.g. after admin adds a new role server-side). */
   refreshRoles(): Observable<RoleOption[]> {
-    return this.api.get<RoleOption[]>(API_ENDPOINTS.appUsers.roles, {
-      context: withCacheBypass(withCache({ ttlMs: ROLES_TTL_MS })),
-    });
+    return this.api
+      .get<RoleOption[]>(API_ENDPOINTS.appUsers.roles, {
+        context: withCacheBypass(withCache({ ttlMs: ROLES_TTL_MS })),
+      })
+      .pipe(map((rs) => this.withLocalRoles(rs)));
   }
 
   // ─────────────── mutations (invalidate) ───────────────
@@ -98,6 +104,28 @@ export class AppUsersService {
   }
 
   // ─────────────── helpers ───────────────
+
+  /**
+   * Normalises the backend role catalogue against the local
+   * `ROLE_LABELS_AR`:
+   *   - gives a role an Arabic label when the backend sent none, or sent the
+   *     English id as its name (e.g. `SuperAdmin`);
+   *   - adds any known role the backend left out (e.g. a newly added
+   *     `SuperAdmin`), so it still shows in pickers and existing users
+   *     with that role can be edited without losing it.
+   */
+  private withLocalRoles(fromApi: RoleOption[] | null | undefined): RoleOption[] {
+    const list = (fromApi ?? []).map((r) => {
+      const local = ROLE_LABELS_AR[r.id as UserRole];
+      const name = r.nameAr?.trim();
+      return local && (!name || name === r.id) ? { ...r, nameAr: local } : r;
+    });
+    const present = new Set(list.map((r) => r.id));
+    const missing = (Object.keys(ROLE_LABELS_AR) as UserRole[])
+      .filter((id) => id !== 'Client' && !present.has(id))
+      .map((id) => ({ id, nameAr: ROLE_LABELS_AR[id] }));
+    return [...missing, ...list];
+  }
 
   /** Lookup an Arabic label for a role id from a cached role catalogue. */
   resolveRoleLabel(roleId: string, roles: RoleOption[]): string {

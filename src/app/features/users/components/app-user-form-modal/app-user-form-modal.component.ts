@@ -27,6 +27,7 @@ import {
 import { UserRole } from '../../../../core/models/auth.model';
 import { ApiError } from '../../../../core/models/api-response.model';
 import { ToastService } from '../../../../core/services/toast.service';
+import { AuthService } from '../../../../core/services/auth.service';
 
 @Component({
   selector: 'app-app-user-form-modal',
@@ -55,6 +56,7 @@ export class AppUserFormModalComponent {
   private readonly fb = inject(FormBuilder);
   private readonly service = inject(AppUsersService);
   private readonly toast = inject(ToastService);
+  private readonly auth = inject(AuthService);
 
   // ── reactive state (template-bound — must be signals) ──
   protected readonly roles = signal<RoleOption[]>([]);
@@ -63,6 +65,17 @@ export class AppUserFormModalComponent {
   protected readonly serverError = signal<string | null>(null);
 
   // ── derived ──
+  /**
+   * Only a SuperAdmin may assign the SuperAdmin role. Everyone else never
+   * sees it — except when viewing/editing a user who already has it, so the
+   * current value still renders (the list hides edit for that case anyway).
+   */
+  protected readonly visibleRoles = computed(() => {
+    const all = this.roles();
+    if (this.auth.hasRole('SuperAdmin')) return all;
+    const keep = this.user()?.role === 'SuperAdmin';
+    return all.filter((r) => r.id !== 'SuperAdmin' || keep);
+  });
   protected readonly isView = computed(() => this.mode() === 'view');
   protected readonly title = computed(() =>
     formModeTitle(this.mode(), 'مستخدم'),

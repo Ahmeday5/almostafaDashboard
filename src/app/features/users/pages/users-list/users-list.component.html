@@ -68,7 +68,10 @@
                     <span>كشف الحساب</span>
                   </button>
                 }
-                <button class="btn btn-sm btn-bl" (click)="openEdit(u)" title="تعديل">تعديل</button>
+                @if (canManage(u)) {
+                  <button class="btn btn-sm btn-bl" (click)="openEdit(u)" title="تعديل">تعديل</button>
+                }
+                @if (canDelete(u)) {
                 <button
                   class="btn btn-sm btn-re d-inline-flex align-items-center gap-1"
                   [disabled]="deletingId() === u.id"
@@ -80,6 +83,7 @@
                   }
                   <span>حذف</span>
                 </button>
+                }
               </div>
             </td>
           </tr>

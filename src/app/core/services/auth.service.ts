@@ -550,6 +550,7 @@ export class AuthService {
 
   private normalizeRole(raw: string | null | undefined): UserRole {
     const map: Record<string, UserRole> = {
+      superadmin: 'SuperAdmin',
       admin: 'Admin',
       generalmanager: 'GeneralManager',
       supervisor: 'Supervisor',

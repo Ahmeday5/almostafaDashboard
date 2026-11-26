@@ -18,10 +18,12 @@ import { roleLabel } from '../../../../core/constants/user-roles.const';
 import { BadgeType } from '../../../../shared/components/badge/badge.component';
 import { PERMISSIONS } from '../../../../core/constants/permissions.const';
 import { HasPermissionDirective } from '../../../../shared/directives/has-permission.directive';
+import { AuthService } from '../../../../core/services/auth.service';
 import { RepsService } from '../../../reps/services/reps.service';
 import { RepStatementModalComponent } from '../../../reps/components/rep-statement-modal/rep-statement-modal.component';
 
 const ROLE_BADGE_MAP: Record<string, BadgeType> = {
+  SuperAdmin: 'bad',
   Admin: 'bad',
   GeneralManager: 'purple',
   Supervisor: 'warn',
@@ -48,6 +50,7 @@ export class UsersListComponent implements OnInit {
   private readonly dialog = inject(DialogService);
   private readonly toast = inject(ToastService);
   private readonly reps = inject(RepsService);
+  private readonly auth = inject(AuthService);
 
   protected readonly PERMS = PERMISSIONS;
 
@@ -71,6 +74,22 @@ export class UsersListComponent implements OnInit {
   protected readonly resolvingStatementFor = signal<string | null>(null);
 
   protected readonly hasUsers = computed(() => this.users().length > 0);
+
+  protected readonly isSuperAdmin = computed(() => this.auth.hasRole('SuperAdmin'));
+  private readonly superAdminCount = computed(
+    () => this.users().filter((u) => u.role === 'SuperAdmin').length,
+  );
+
+  /** Only a SuperAdmin may edit or delete a SuperAdmin account. */
+  protected canManage(u: AppUser): boolean {
+    return u.role !== 'SuperAdmin' || this.isSuperAdmin();
+  }
+
+  /** Same as `canManage`, plus the last SuperAdmin can never be deleted. */
+  protected canDelete(u: AppUser): boolean {
+    if (!this.canManage(u)) return false;
+    return u.role !== 'SuperAdmin' || this.superAdminCount() > 1;
+  }
 
   ngOnInit(): void {
     this.loadUsers();

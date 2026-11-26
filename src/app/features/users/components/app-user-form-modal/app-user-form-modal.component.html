@@ -76,7 +76,7 @@
           <option value="" disabled>
             {{ rolesLoading() ? 'جاري التحميل...' : 'اختر الدور' }}
           </option>
-          @for (r of roles(); track r.id) {
+          @for (r of visibleRoles(); track r.id) {
             <option [value]="r.id">{{ r.nameAr }}</option>
           }
         </select>

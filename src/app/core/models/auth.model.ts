@@ -3,6 +3,7 @@
  * `GET /dashboard/app-users/roles`.
  */
 export type UserRole =
+  | 'SuperAdmin'
   | 'Admin'
   | 'GeneralManager'
   | 'Supervisor'

@@ -80,7 +80,7 @@ export class ShareholdersComponent {
   /** Exposed so the template can gate write actions with `*appHasPermission`. */
   protected readonly PERMS = PERMISSIONS;
 
-  protected readonly isAdmin = computed(() => this.auth.currentUser()?.role === 'Admin');
+  protected readonly isAdmin = computed(() => this.auth.hasAnyRole(['SuperAdmin', 'Admin']));
 
   // ── data ──
   /** Raw page — page 1 is prefixed by the synthetic read-only company row (`isCompany`). */

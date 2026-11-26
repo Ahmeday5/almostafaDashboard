@@ -6,6 +6,7 @@ import { UserRole } from '../models/auth.model';
  * one edit.
  */
 export const ROLE_LABELS_AR: Record<UserRole, string> = {
+  SuperAdmin: 'مدير النظام الأعلى',
   Admin: 'مدير النظام',
   GeneralManager: 'مدير عام',
   Supervisor: 'مشرف',
@@ -16,6 +17,7 @@ export const ROLE_LABELS_AR: Record<UserRole, string> = {
 
 /** Compile-time list of all roles. */
 export const ALL_ROLES: ReadonlyArray<UserRole> = [
+  'SuperAdmin',
   'Admin',
   'GeneralManager',
   'Supervisor',

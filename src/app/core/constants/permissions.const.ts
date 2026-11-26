@@ -41,6 +41,8 @@ export const ALL_PERMISSIONS: ReadonlyArray<Permission> = Object.freeze(
 export const ROLE_PERMISSIONS: Readonly<
   Record<string, ReadonlyArray<Permission>>
 > = Object.freeze({
+  // SuperAdmin sits above Admin: every permission in the catalogue.
+  SuperAdmin: [...ALL_PERMISSIONS],
   Admin: [
     PERMISSIONS.dashboardView,
     PERMISSIONS.clientsView,
